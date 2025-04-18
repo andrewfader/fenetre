@@ -5,6 +5,11 @@ require 'action_cable/engine'
 require 'action_view/railtie'
 require 'turbo-rails'
 require 'stimulus-rails'
+require_relative '../fenetre'
+require_relative '../fenetre/version'
+
+# Explicitly require helper to ensure it's loaded before the engine initializers run
+require_relative '../../app/helpers/fenetre/video_chat_helper'
 
 module Fenetre
   module Automatic; end
