@@ -41,5 +41,22 @@ module Fenetre
       assert_match(/My Video/i, rendered_html)
       assert_match(/Remote Videos/i, rendered_html)
     end
+
+    test 'fenetre_video_chat_container renders required data-controller and targets' do
+      html = fenetre_video_chat_container('room123', 'user456')
+      assert_includes html, 'data-controller="fenetre--video-chat"'
+      assert_includes html, 'data-fenetre-video-chat-target="localVideo"'
+      assert_includes html, 'data-fenetre-video-chat-target="remoteVideos"'
+      assert_includes html, 'data-fenetre-video-chat-target="roomId"'
+      assert_includes html, 'value="room123"'
+      assert_includes html, 'data-fenetre-video-chat-user-id-value="user456"'
+    end
+
+    test 'fenetre_video_chat_container includes video and remote video containers' do
+      html = fenetre_video_chat_container('roomABC', 'userXYZ')
+      assert_includes html, '<video'
+      assert_includes html, 'data-fenetre-video-chat-target="localVideo"'
+      assert_includes html, 'data-fenetre-video-chat-target="remoteVideos"'
+    end
   end
 end
