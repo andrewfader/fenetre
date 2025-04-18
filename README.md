@@ -1,3 +1,5 @@
+# Caution: Do not use. Experimental. Does not work yet
+
 # Fenetre: WebRTC Video Chat for Rails with Hotwire, Turbo, and Stimulus
 
 Fenetre is a Rails engine that provides real-time, multi-user video chat using WebRTC, ActionCable, Turbo Streams, and Stimulus. It is designed for easy integration into Rails apps and supports modern features for real-world video chat scenarios.
