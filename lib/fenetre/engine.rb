@@ -5,8 +5,7 @@ require 'action_cable/engine'
 require 'action_view/railtie'
 require 'turbo-rails'
 require 'stimulus-rails'
-require_relative '../fenetre'
-require_relative '../fenetre/version'
+require_relative 'version'
 
 # Explicitly require helper to ensure it's loaded before the engine initializers run
 require_relative '../../app/helpers/fenetre/video_chat_helper'
@@ -34,6 +33,20 @@ module Fenetre
       end
     end
 
+    # Include ActionCable in the host application
+    initializer 'fenetre.action_cable' do
+      # Register the channel path instead of using channel_class_names
+      if defined?(ActionCable) && defined?(ActionCable.server)
+        action_cable_paths = Array(Rails.root.join('app/channels'))
+        action_cable_paths << Fenetre::Engine.root.join('app/channels')
+        ActionCable.server.config.cable ||= {}
+        if ActionCable.server.config.instance_variable_defined?(:@paths)
+          ActionCable.server.config.send(:remove_instance_variable,
+                                         :@paths)
+        end
+      end
+    end
+
     # Register helpers
     initializer 'fenetre.helpers' do
       ActiveSupport.on_load(:action_controller_base) do
@@ -44,7 +57,6 @@ module Fenetre
         include Fenetre::VideoChatHelper
       end
     end
-
   end
 end
 
