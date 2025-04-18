@@ -238,7 +238,7 @@ module Fenetre
       assert_broadcasts("fenetre_video_chat_#{room_id}", 1) do
         perform :chat, { message: 'Hello world!' }
       end
-      chat = broadcasts("fenetre_video_chat_#{room_id}").last
+      chat = JSON.parse(broadcasts("fenetre_video_chat_#{room_id}").last)
       assert_equal 'chat', chat[:type]
       assert_equal 'Hello world!', chat[:message]
       assert_equal connection.current_user.id, chat[:from]
