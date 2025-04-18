@@ -1,0 +1,44 @@
+# Ignore bundler config.
+/.bundle
+
+# Ignore all logfiles and tempfiles.
+/log/*
+/tmp/*
+!/log/.keep
+!/tmp/.keep
+
+# Ignore pidfiles, but keep the directory.
+/tmp/pids/*
+!/tmp/pids/
+!/tmp/pids/.keep
+
+# Ignore uploaded files in development.
+/storage/*
+!/storage/.keep
+
+/node_modules
+/yarn-error.log
+yarn-debug.log*
+.yarn-integrity
+
+# Ignore master key for decrypting credentials.
+/config/master.key
+
+# Ignore build / install artifacts
+/pkg
+/vendor/bundle/
+/vendor/cache/
+*.gem
+/.gem/
+
+# Ignore dummy app files if created
+/test/dummy/log
+/test/dummy/tmp
+/test/dummy/storage
+/test/dummy/public/vite*
+/test/dummy/.yarn-integrity
+/test/dummy/node_modules
+/test/dummy/.DS_Store
+
+# Ignore OS-specific files
+.DS_Store

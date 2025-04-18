@@ -1,0 +1,7 @@
+<h1>Video Chat Test Page</h1>
+
+<p>Room ID: <%= @room_id %></p>
+<p>User ID: <%= @user_id %></p>
+
+<%# Use the gem's helper %>
+<%= fenetre_video_chat_container(@room_id, @user_id) %>

@@ -1,0 +1,17 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'pathname'
+
+# Path to your gem's root directory
+GEM_ROOT = Pathname(File.expand_path('..', __dir__))
+
+puts '== Installing dependencies =='
+system 'gem install bundler --conservative'
+system 'bundle check || bundle install'
+
+# If you add a dummy app, uncomment and adjust these lines:
+# puts "\n== Preparing dummy app =="
+# system "bundle exec rake app:db:prepare", chdir: GEM_ROOT.join("test/dummy")
+
+puts "\n== Fenetre is ready to go! =="

@@ -1,0 +1,87 @@
+/* Fenetre Video Chat Styles - Dark and Light Themes */
+.fenetre-video-chat-container {
+  border-radius: 12px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.18);
+  padding: 1.5rem;
+  max-width: 700px;
+  margin: 2rem auto;
+  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+  transition: background 0.2s, color 0.2s;
+}
+
+.fenetre-theme-dark {
+  background: #181c20;
+  color: #f3f6fa;
+}
+.fenetre-theme-dark h3 {
+  color: #e0e6ef;
+}
+.fenetre-theme-dark ul#fenetre-participant-list,
+.fenetre-theme-dark #fenetre-chat-box {
+  background: #23272e;
+  color: #f3f6fa;
+}
+.fenetre-theme-dark ul#fenetre-participant-list li {
+  border-bottom: 1px solid #23272e;
+}
+.fenetre-theme-dark video {
+  border: 2px solid #23272e;
+  background: #101214;
+}
+
+.fenetre-theme-light {
+  background: #f7fafd;
+  color: #23272e;
+}
+.fenetre-theme-light h3 {
+  color: #23272e;
+}
+.fenetre-theme-light ul#fenetre-participant-list,
+.fenetre-theme-light #fenetre-chat-box {
+  background: #e9eef3;
+  color: #23272e;
+}
+.fenetre-theme-light ul#fenetre-participant-list li {
+  border-bottom: 1px solid #e9eef3;
+}
+.fenetre-theme-light video {
+  border: 2px solid #e9eef3;
+  background: #fff;
+}
+
+.fenetre-video-chat-container h3 {
+  margin-top: 1.2em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.fenetre-video-chat-container ul#fenetre-participant-list {
+  border-radius: 8px;
+  padding: 0.5em 1em;
+  margin-bottom: 1em;
+  list-style: none;
+  min-height: 2em;
+}
+.fenetre-video-chat-container ul#fenetre-participant-list li {
+  padding: 0.2em 0;
+}
+.fenetre-video-chat-container .fenetre-video-section {
+  display: flex;
+  gap: 2em;
+  flex-wrap: wrap;
+}
+.fenetre-video-chat-container video {
+  border-radius: 8px;
+}
+.fenetre-video-chat-container #fenetre-chat-box {
+  border-radius: 8px;
+  padding: 0.5em 1em;
+  min-height: 2em;
+  margin-top: 1em;
+  font-size: 1em;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.fenetre-video-chat-container #fenetre-chat-box div {
+  margin-bottom: 0.3em;
+}
