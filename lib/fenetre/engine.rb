@@ -25,8 +25,7 @@ module Fenetre
         app.routes.append do
           mount ActionCable.server => '/cable'
         end
-        # Reload routes after adding the mount point
-        app.reload_routes!
+        # Removed to avoid Devise/Warden and Rails 8 issues
       end
     end
 
