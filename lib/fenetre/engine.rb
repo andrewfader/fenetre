@@ -38,11 +38,19 @@ module Fenetre
 
     # Add Stimulus controllers to importmap if available
     initializer 'fenetre.importmap', before: 'importmap' do |app|
-      if app.config.respond_to?(:importmap) && app.config.importmap.respond_to?(:pin_all_from)
-        app.config.importmap.pin_all_from(
-          Fenetre::Engine.root.join('app/javascript/controllers'),
-          under: 'controllers'
-        )
+      if app.config.respond_to?(:importmap)
+        # Pin the required libraries
+        app.config.importmap.pin '@hotwired/stimulus', to: 'stimulus.min.js', preload: true
+        app.config.importmap.pin '@hotwired/stimulus-loading', to: 'stimulus-loading.js', preload: true
+        app.config.importmap.pin 'application', to: 'fenetre/application.js'
+
+        # Pin controllers
+        if app.config.importmap.respond_to?(:pin_all_from)
+          app.config.importmap.pin_all_from(
+            Fenetre::Engine.root.join('app/javascript/controllers'),
+            under: 'controllers'
+          )
+        end
       end
     end
 
