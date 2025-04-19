@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>QUnit Test Runner</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://code.jquery.com/qunit/qunit-2.20.1.css">
+  <%= javascript_importmap_tags %>
+  <script type="module" src="/assets/test/test_runner.js"></script>
+</head>
+<body>
+  <div id="qunit"></div>
+  <div id="qunit-fixture">
+    <!-- Add HTML fixtures needed for your Stimulus controller tests here -->
+    <div data-controller="fenetre--video-chat"
+         data-fenetre--video-chat-room-id-value="test-room"
+         data-fenetre--video-chat-user-id-value="user-1"
+         data-fenetre--video-chat-username-value="TestUser"
+         data-fenetre--video-chat-signal-url-value="/cable">
+      <video data-fenetre--video-chat-target="localVideo"></video>
+      <div data-fenetre--video-chat-target="remoteVideos"></div>
+      <div data-fenetre--video-chat-target="chatMessages"></div>
+      <input type="text" data-fenetre--video-chat-target="chatInput">
+      <button data-action="fenetre--video-chat#sendChat">Send</button>
+      <button data-action="fenetre--video-chat#toggleVideo">Toggle Video</button>
+      <button data-action="fenetre--video-chat#toggleAudio">Toggle Audio</button>
+      <button data-action="fenetre--video-chat#toggleScreenShare">Share Screen</button>
+    </div>
+  </div>
+</body>
+</html>

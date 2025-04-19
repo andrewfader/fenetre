@@ -20,4 +20,9 @@ Rails.application.routes.draw do
   # Add a simple route for testing the helper
   get '/video_chat', to: 'video#show'
   get '/video/test_helper', to: 'video#test_helper'
+
+  # Route for the QUnit test runner
+  get '/javascript_tests', to: proc { |env|
+    [200, { 'Content-Type' => 'text/html' }, [File.read(Rails.root.join('public', 'test_runner.html'))]]
+  }, constraints: -> { Rails.env.test? || Rails.env.development? }
 end

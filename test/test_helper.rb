@@ -7,6 +7,8 @@ require_relative 'dummy/config/environment'
 ActiveRecord::Migrator.migrations_paths = [File.expand_path('dummy/db/migrate', __dir__)]
 require 'rails/test_help'
 require 'action_cable/channel/test_case' # Ensure Action Cable test case is loaded
+require 'capybara/rails' # Add Capybara for integration tests
+require 'capybara/minitest' # Add Capybara Minitest assertions
 
 # Filter out Minitest backtrace while allowing backtrace from other libraries
 # to be shown.
@@ -28,6 +30,23 @@ end
 # class ActiveSupport::TestCase
 #   include ActionCable::TestHelper
 # end
+
+# Include Capybara DSL in Integration Tests for JavaScript capabilities
+class ActionDispatch::IntegrationTest
+  include Capybara::DSL
+  # Make `assert_*` methods behave like Minitest assertions
+  include Capybara::Minitest::Assertions
+
+  # Set the Capybara driver for JS tests (can be :selenium_chrome_headless, :cuprite, etc.)
+  # Ensure the driver matches the one used in system tests if consistency is needed
+  Capybara.javascript_driver = :selenium_chrome_headless
+
+  # Optional: Reset sessions and driver after each test
+  teardown do
+    Capybara.reset_sessions!
+    Capybara.use_default_driver
+  end
+end
 
 # Ensure Action Cable uses the test adapter
 ActionCable.server.config.cable = { 'adapter' => 'test' }
