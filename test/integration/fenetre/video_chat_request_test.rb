@@ -2,9 +2,32 @@ require 'test_helper'
 
 module Fenetre
   class VideoChatRequestTest < ActionDispatch::IntegrationTest
+    # Helper class to properly simulate a Rails view context
+    class TestViewContext
+      include Fenetre::VideoChatHelper
+      include ActionView::Helpers::TagHelper
+      include ActionView::Helpers::CaptureHelper
+      include ActionView::Helpers::OutputSafetyHelper
+      include ActionView::Helpers::AssetTagHelper
+      
+      attr_accessor :output_buffer
+      
+      def initialize
+        @output_buffer = ActionView::OutputBuffer.new
+      end
+      
+      def concat(html)
+        @output_buffer.concat(html)
+      end
+      
+      def raw(html)
+        html.html_safe
+      end
+    end
+    
     test "video chat ActionCable connection can be established" do
       # Visit the room page first to establish a session
-      get "/video/show?room_id=requesttest&user_id=42"
+      get "/video_chat?room_id=requesttest&user_id=42"
       assert_response :success
       
       # Simulate a WebSocket connection to the ActionCable server
@@ -31,7 +54,8 @@ module Fenetre
     
     test "video chat helper generates correct HTML" do
       # Test that the fenetre_video_chat_container helper correctly renders HTML
-      helper_output = Fenetre::VideoChatHelper.fenetre_video_chat_container(
+      view_context = TestViewContext.new
+      helper_output = view_context.fenetre_video_chat_container(
         "helpertest", 
         99,
         theme: "light"
@@ -46,7 +70,7 @@ module Fenetre
       # Verify that the engine's routes are properly mounted in the application
       assert_recognizes(
         { controller: "video", action: "show" },
-        "/video/show"
+        "/video_chat"
       )
     end
   end

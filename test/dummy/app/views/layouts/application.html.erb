@@ -20,9 +20,16 @@
     <%# Includes all stylesheet files in app/assets/stylesheets %>
     <%= stylesheet_link_tag :app %>
 
-    <%# Add these lines for Turbo and Stimulus %>
-    <%= javascript_importmap_tags %>
-    <%= turbo_include_tags %>
+    <%# Add these lines for Turbo and Stimulus - conditionally include import maps %>
+    <% if defined?(javascript_importmap_tags) %>
+      <%= javascript_importmap_tags %>
+    <% else %>
+      <%= javascript_include_tag "application", "data-turbo-track": "reload" %>
+    <% end %>
+    
+    <% if defined?(turbo_include_tags) %>
+      <%= turbo_include_tags %>
+    <% end %>
   </head>
 
   <body>
