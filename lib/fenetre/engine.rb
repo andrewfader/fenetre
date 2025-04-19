@@ -76,12 +76,8 @@ module Fenetre
         include Fenetre::VideoChatHelper
       end
       # Explicitly include in base classes for reliability
-      if defined?(::ActionController::Base)
-        ::ActionController::Base.helper Fenetre::VideoChatHelper
-      end
-      if defined?(::ActionView::Base)
-        ::ActionView::Base.include Fenetre::VideoChatHelper
-      end
+      ::ActionController::Base.helper Fenetre::VideoChatHelper if defined?(::ActionController::Base)
+      ::ActionView::Base.include Fenetre::VideoChatHelper if defined?(::ActionView::Base)
     end
   end
 end

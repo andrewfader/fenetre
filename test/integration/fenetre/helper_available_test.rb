@@ -18,6 +18,7 @@ class HelperAvailableTest < ActionDispatch::IntegrationTest
   test 'fenetre_video_chat_container helper is available in views' do
     get '/video/test_helper'
     assert_response :success
-    assert_includes @response.body, 'fenetre-video-chat-container', 'Helper output should be present in the rendered view'
+    assert_includes @response.body, 'fenetre-video-chat-container',
+                    'Helper output should be present in the rendered view'
   end
 end

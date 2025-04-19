@@ -2,6 +2,11 @@
 
 A Rails engine that adds WebRTC video chat to your app using ActionCable, Stimulus, and Turbo.
 
+## Requirements
+
+- Ruby 3.4.3 or newer
+- Rails 6.1 or newer
+
 ## Installation
 
 Add to your Gemfile:
