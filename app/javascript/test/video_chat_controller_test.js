@@ -1,5 +1,5 @@
 import { Application } from "@hotwired/stimulus"
-import VideoChatController from "controllers/fenetre/video_chat_controller"
+import VideoChatController from "../controllers/fenetre/video_chat_controller.js"
 
 QUnit.module("Fenetre::VideoChatController", hooks => {
   let application
