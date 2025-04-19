@@ -10,6 +10,5 @@ class VideoController < ApplicationController
     @user_id = session[:user_id] ||= rand(1000..9999)
   end
 
-  def test_helper
-  end
+  def test_helper; end
 end

@@ -1,8 +1,8 @@
+# frozen_string_literal: true
+
 def broadcast(type, payload = {})
   # Ensure user context is available
   return unless current_user && @room_id
-
-  stream_name = "fenetre_video_chat_#{@room_id}"
 
   # Prepare data, ensuring consistent structure
   data = {

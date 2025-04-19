@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # test/integration/helper_availability_test.rb
 require 'test_helper'
 
