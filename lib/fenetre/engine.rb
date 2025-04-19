@@ -72,9 +72,15 @@ module Fenetre
       ActiveSupport.on_load(:action_controller_base) do
         helper Fenetre::VideoChatHelper
       end
-
       ActiveSupport.on_load(:action_view) do
         include Fenetre::VideoChatHelper
+      end
+      # Explicitly include in base classes for reliability
+      if defined?(::ActionController::Base)
+        ::ActionController::Base.helper Fenetre::VideoChatHelper
+      end
+      if defined?(::ActionView::Base)
+        ::ActionView::Base.include Fenetre::VideoChatHelper
       end
     end
   end
