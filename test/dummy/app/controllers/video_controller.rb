@@ -9,4 +9,7 @@ class VideoController < ApplicationController
     # Stubbing a user ID for simplicity in the dummy app
     @user_id = session[:user_id] ||= rand(1000..9999)
   end
+
+  def test_helper
+  end
 end

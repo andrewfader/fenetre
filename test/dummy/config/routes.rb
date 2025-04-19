@@ -19,4 +19,5 @@ Rails.application.routes.draw do
 
   # Add a simple route for testing the helper
   get '/video_chat', to: 'video#show'
+  get '/video/test_helper', to: 'video#test_helper'
 end
