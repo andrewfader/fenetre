@@ -27,14 +27,14 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'rails', '>= 6.1' # Adjust Rails version as needed
   spec.add_dependency 'stimulus-rails'
   spec.add_dependency 'turbo-rails'
+  spec.add_dependency 'propshaft'
+  spec.add_dependency 'importmap-rails'
 
-  spec.add_development_dependency 'importmap-rails' # For dummy app JS
   spec.add_development_dependency 'minitest'
   spec.add_development_dependency 'nokogiri' # For parsing HTML in helper tests
   spec.add_development_dependency 'rake'
   spec.add_development_dependency 'redis', '>= 4.0' # For dummy app Action Cable
   # Core dependencies for the dummy Rails app itself
-  spec.add_development_dependency 'propshaft'
   spec.add_development_dependency 'puma', '>= 5.0'
   spec.add_development_dependency 'sqlite3', '>= 1.4' # Use version compatible with Rails 6.1+
   spec.add_development_dependency "actioncable", ">= 8.0"

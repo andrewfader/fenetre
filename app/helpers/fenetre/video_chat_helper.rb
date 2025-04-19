@@ -5,7 +5,7 @@ module Fenetre
     # Helper method to render the video chat container with proper data attributes
     def fenetre_video_chat_container(room_id, user_id, theme: 'dark')
       content = stylesheet_link_tag('fenetre/video_chat', media: 'all')
-      js = javascript_include_tag('fenetre.js')
+      js = javascript_include_tag('fenetre.js', type: 'module')
       content + js + video_chat_main_container(room_id, user_id, theme)
     end
 

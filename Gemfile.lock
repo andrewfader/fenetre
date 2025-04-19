@@ -2,6 +2,8 @@ PATH
   remote: .
   specs:
     fenetre (0.1.0)
+      importmap-rails
+      propshaft
       rails (>= 6.1)
       stimulus-rails
       turbo-rails
@@ -242,7 +244,9 @@ GEM
     ruby-progressbar (1.13.0)
     rubyzip (2.4.1)
     securerandom (0.4.1)
-    selenium-webdriver (4.10.0)
+    selenium-webdriver (4.31.0)
+      base64 (~> 0.2)
+      logger (~> 1.4)
       rexml (~> 3.2, >= 3.2.5)
       rubyzip (>= 1.2.2, < 3.0)
       websocket (~> 1.0)
@@ -282,10 +286,8 @@ DEPENDENCIES
   brakeman
   capybara
   fenetre!
-  importmap-rails
   minitest
   nokogiri
-  propshaft
   puma (>= 5.0)
   rake
   redis (>= 4.0)
