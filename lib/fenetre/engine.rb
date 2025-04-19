@@ -16,6 +16,20 @@ module Fenetre
   class Engine < ::Rails::Engine
     isolate_namespace Fenetre
 
+    # Mount Action Cable server automatically
+    initializer 'fenetre.mount_cable', after: :load_config_initializers do |app|
+      # Check if Action Cable route is already mounted
+      has_cable_route = app.routes.routes.any? { |route| route.app == ActionCable.server }
+
+      unless has_cable_route
+        app.routes.append do
+          mount ActionCable.server => '/cable'
+        end
+        # Reload routes after adding the mount point
+        app.reload_routes!
+      end
+    end
+
     # Set up asset loading
     initializer 'fenetre.assets' do |app|
       # Add JavaScript assets
@@ -33,16 +47,22 @@ module Fenetre
       end
     end
 
-    # Include ActionCable in the host application
-    initializer 'fenetre.action_cable' do
+    # Include ActionCable in the host application - ensure it doesn't interfere with Devise
+    initializer 'fenetre.action_cable', after: :load_config_initializers do
       # Register the channel path instead of using channel_class_names
       if defined?(ActionCable) && defined?(ActionCable.server)
         action_cable_paths = Array(Rails.root.join('app/channels'))
         action_cable_paths << Fenetre::Engine.root.join('app/channels')
-        ActionCable.server.config.cable ||= {}
-        if ActionCable.server.config.instance_variable_defined?(:@paths)
-          ActionCable.server.config.send(:remove_instance_variable,
-                                         :@paths)
+
+        # Only configure if ActionCable server is present and not already configured
+        if ActionCable.server.config.cable
+          # Use safer method to update paths without removing existing configuration
+          if ActionCable.server.config.respond_to?(:paths=)
+            ActionCable.server.config.paths = action_cable_paths
+          elsif ActionCable.server.config.instance_variable_defined?(:@paths)
+            # Carefully update paths without affecting other configurations
+            ActionCable.server.config.instance_variable_set(:@paths, action_cable_paths)
+          end
         end
       end
     end
@@ -60,10 +80,12 @@ module Fenetre
   end
 end
 
-# Mountable status engine for health checks
+# Mountable status engine for health checks - ensure it doesn't conflict with other gems
 class AutomaticEngine < ::Rails::Engine
   isolate_namespace Fenetre::Automatic
-  initializer 'fenetre.automatic_engine' do |app|
+
+  # Use a lower priority to ensure it loads after authentication engines
+  initializer 'fenetre.automatic_engine', after: :load_config_initializers do |app|
     # No-op, just for mounting
   end
 end

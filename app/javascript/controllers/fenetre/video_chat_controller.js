@@ -191,6 +191,32 @@ export default class extends Controller {
     }
   }
 
+  // Chat functionality
+  sendChat(event) {
+    event.preventDefault();
+    const chatInput = this.element.querySelector('[data-fenetre-video-chat-target="chatInput"]');
+    if (!chatInput || !chatInput.value.trim()) return;
+    
+    const message = chatInput.value.trim();
+    console.log(`Sending chat message: ${message}`);
+    
+    // Send via ActionCable
+    this.subscription.perform("send_message", { message });
+    
+    // Clear input field
+    chatInput.value = '';
+    
+    // Add to local display (optional, usually handled by the broadcast)
+    const chatMessages = this.element.querySelector('[data-fenetre-video-chat-target="chatMessages"]');
+    if (chatMessages) {
+      const messageEl = document.createElement('div');
+      messageEl.classList.add('fenetre-chat-message', 'fenetre-chat-message-self');
+      messageEl.textContent = `You: ${message}`;
+      chatMessages.appendChild(messageEl);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+  }
+
   createPeerConnection(peerId, isOffering) {
     if (this.peerConnections[peerId]) {
       console.log(`Peer connection already exists for ${peerId}`);
