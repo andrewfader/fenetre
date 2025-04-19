@@ -4,6 +4,9 @@
 // Re-export the main fenetre module
 import "./fenetre.js"
 
+// Load the controllers entrypoint using a relative path
+import "./controllers/index.js"
+
 // Export a basic API for the host application to use
 export const Fenetre = {
   version: "1.0.0",

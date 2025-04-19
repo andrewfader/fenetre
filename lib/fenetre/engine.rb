@@ -29,28 +29,31 @@ module Fenetre
       end
     end
 
-    # Set up asset loading
-    initializer 'fenetre.assets' do |app|
-      # Add JavaScript assets
-      app.config.respond_to?(:assets) &&
-        app.config.assets.precompile += %w[fenetre/video_chat_controller.js fenetre.js]
-    end
-
     # Add Stimulus controllers to importmap if available
     initializer 'fenetre.importmap', before: 'importmap' do |app|
+      # Check if the host app uses importmap-rails
       if app.config.respond_to?(:importmap)
-        # Pin the required libraries
-        app.config.importmap.pin '@hotwired/stimulus', to: 'stimulus.min.js', preload: true
-        app.config.importmap.pin '@hotwired/stimulus-loading', to: 'stimulus-loading.js', preload: true
-        app.config.importmap.pin 'application', to: 'fenetre/application.js'
+        # Pin the engine's controllers directory.
+        # Controllers will be loaded automatically by the host app's Stimulus setup
+        # if it imports controllers (e.g., import "./controllers").
+        # The controllers will be available under 'controllers/fenetre/...'
+        app.config.importmap.pin_all_from Fenetre::Engine.root.join('app/javascript/controllers'),
+                                          under: 'controllers/fenetre', to: 'fenetre/controllers'
 
-        # Pin controllers
-        if app.config.importmap.respond_to?(:pin_all_from)
-          app.config.importmap.pin_all_from(
-            Fenetre::Engine.root.join('app/javascript/controllers'),
-            under: 'controllers'
-          )
-        end
+        # Pin the engine's main JS entry point if needed, or individual files.
+        # This makes `import 'fenetre'` or specific files available.
+        # Pinning the directory allows importing specific files like `import 'fenetre/some_module'`
+        app.config.importmap.pin_all_from Fenetre::Engine.root.join('app/assets/javascripts/fenetre'),
+                                          under: 'fenetre', to: 'fenetre'
+
+        # Ensure the engine's assets are served
+        app.config.assets.paths << Fenetre::Engine.root.join('app/assets/javascripts')
+        # Add stylesheets if needed via assets
+        # app.config.assets.paths << Fenetre::Engine.root.join('app/assets/stylesheets')
+        # app.config.assets.precompile += %w( fenetre/video_chat.css ) # If using sprockets for CSS
+      else
+        # Fallback or warning if importmap is not used by the host app
+        Rails.logger.warn "Fenetre requires importmap-rails to automatically load JavaScript controllers. Please install importmap-rails or manually include Fenetre's JavaScript."
       end
     end
 

@@ -23,13 +23,16 @@ bundle install
 
 ## Setup
 
-Fenetre automatically handles the necessary setup, including:
+Fenetre automatically handles most of the necessary setup when used with `importmap-rails`:
 
 - Mounting the Action Cable server at `/cable` (if not already mounted).
-- Loading the required JavaScript controllers and CSS assets.
+- Making the Stimulus controllers available via the import map.
 - Making the view helper available.
 
-**Important:** You still need to configure your main application's Action Cable connection (`app/channels/application_cable/connection.rb`) to identify users correctly, as Fenetre relies on this for authentication and user identification within chat rooms. Here's a typical example using Devise:
+**Important:**
+- Your host application **must** use `importmap-rails`.
+- Your host application's `app/javascript/application.js` should load Stimulus controllers (e.g., contain `import "./controllers"`).
+- You still need to configure your main application's Action Cable connection (`app/channels/application_cable/connection.rb`) to identify users correctly, as Fenetre relies on this for authentication and user identification within chat rooms. Here's a typical example using Devise:
 
 ```ruby
 # app/channels/application_cable/connection.rb
@@ -58,6 +61,8 @@ end
 
 ## Usage
 
+No manual JavaScript setup (like `javascript_include_tag` for the engine or adding assets to `config/initializers/assets.rb`) is required if you are using `importmap-rails`.
+
 ### Basic Video Chat
 
 Add the video chat container helper to any view where you want the chat interface:
@@ -67,10 +72,7 @@ Add the video chat container helper to any view where you want the chat interfac
 <%= fenetre_video_chat_container(room_id, current_user.id) %>
 ```
 
-This renders a complete video chat UI with:
-- Local and remote video areas
-- Media controls (mute/unmute, video on/off)
-- Text chat messaging
+This renders a complete video chat UI. The necessary Stimulus controller (`fenetre--video-chat`) will be automatically loaded.
 
 ### Room Options
 
@@ -78,7 +80,7 @@ Customize the video chat experience using options:
 
 ```erb
 <%= fenetre_video_chat_container(
-  room_id, 
+  room_id,
   current_user.id,
   theme: 'light',                   # 'dark' (default) or 'light'
   # Add other options as needed based on helper definition
@@ -87,17 +89,27 @@ Customize the video chat experience using options:
 
 ### JavaScript Interaction (Optional)
 
-While Fenetre works out-of-the-box, you can interact with the Stimulus controller for advanced customization:
+While Fenetre works out-of-the-box, you can interact with the Stimulus controller (`fenetre--video-chat`) for advanced customization:
 
 ```javascript
-// Get the controller instance
-const element = document.querySelector('[data-controller="fenetre--video-chat"]');
-const controller = application.getControllerForElementAndIdentifier(element, "fenetre--video-chat");
+// In your application's JavaScript or another Stimulus controller
+import { Controller } from '@hotwired/stimulus'
 
-// Example: Listen for custom events (if implemented in the controller)
-// element.addEventListener('fenetre:user-joined', (event) => {
-//   console.log(`User ${event.detail.userId} joined`);
-// });
+export default class extends Controller {
+  connect() {
+    const fenetreElement = this.element.querySelector('[data-controller="fenetre--video-chat"]');
+    if (fenetreElement) {
+      const fenetreController = this.application.getControllerForElementAndIdentifier(fenetreElement, 'fenetre--video-chat');
+      // Now you can interact with fenetreController if needed
+      console.log('Fenetre controller found:', fenetreController);
+
+      // Example: Listen for custom events (if implemented in the controller)
+      // fenetreElement.addEventListener('fenetre:user-joined', (event) => {
+      //   console.log(`User ${event.detail.userId} joined`);
+      // });
+    }
+  }
+}
 ```
 
 ## Styling

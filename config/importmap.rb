@@ -8,6 +8,9 @@ pin '@hotwired/stimulus-loading', to: 'stimulus-loading.js', preload: true
 pin '@hotwired/turbo-rails', to: 'turbo.min.js', preload: true
 pin '@hotwired/turbo', to: 'turbo.js', preload: true
 
+# Fenetre engine JS is fully vendored and does not require importmap pins.
+# Remove any importmap pins for fenetre assets if present.
+
 # Pin this engine's JS modules for use by the host application
 pin 'application', to: 'fenetre/application.js'
 pin 'controllers/index', to: 'fenetre/controllers/index.js'
