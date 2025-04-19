@@ -33,7 +33,7 @@ module Fenetre
     initializer 'fenetre.assets' do |app|
       # Add JavaScript assets
       app.config.respond_to?(:assets) &&
-        app.config.assets.precompile += %w[fenetre/video_chat_controller.js]
+        app.config.assets.precompile += %w[fenetre/video_chat_controller.js fenetre.js]
     end
 
     # Add Stimulus controllers to importmap if available
