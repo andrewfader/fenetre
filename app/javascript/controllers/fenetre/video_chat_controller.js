@@ -34,10 +34,20 @@ export default class extends StimulusController {
     this.localStream = null;
     this.screenStream = null;
     this.isScreenSharing = false;
-    this.roomId = this.roomIdTarget.value;
 
+    // Ensure essential targets provided by the helper exist
+    if (!this.hasConnectionStatusTarget) {
+      console.error("Fenetre: connectionStatusTarget is missing! Check the view helper.");
+      return; 
+    }
+    if (!this.hasRoomIdTarget) {
+      console.error("Fenetre: roomIdTarget is missing! Check the view helper.");
+      return; 
+    }
+
+    this.roomId = this.roomIdTarget.value;
     if (!this.roomId) {
-      console.error("Room ID is missing!");
+      console.error("Fenetre: Room ID value is missing!");
       return;
     }
 
@@ -116,10 +126,10 @@ export default class extends StimulusController {
     this.updateConnectionStatus('disconnected');
   }
 
-  updateConnectionStatus(status) {
-    if (this.hasConnectionStatusTarget) {
+  updateConnectionStatus(status) { // Removed optional element argument
+    // Rely on Stimulus finding the target
+    if (this.hasConnectionStatusTarget) { 
       const statusElement = this.connectionStatusTarget;
-      
       // Clear previous status classes
       statusElement.classList.remove('fenetre-status-connecting', 'fenetre-status-connected', 
                                     'fenetre-status-disconnected', 'fenetre-status-reconnecting',
@@ -148,6 +158,8 @@ export default class extends StimulusController {
           statusElement.textContent = 'Connection Error';
           break;
       }
+    } else {
+       console.warn("Fenetre: connectionStatusTarget could not be found.");
     }
   }
 

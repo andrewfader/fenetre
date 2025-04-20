@@ -4,7 +4,7 @@
 
 # Core dependencies (used by the engine)
 pin '@hotwired/turbo-rails', to: 'turbo.min.js', preload: true
-pin '@hotwired/stimulus', to: 'stimulus.min.js', preload: true
+pin '@hotwired/stimulus', to: 'https://unpkg.com/@hotwired/stimulus/dist/stimulus.min.js', preload: true
 pin 'stimulus', to: '@hotwired/stimulus', preload: true
 pin '@hotwired/stimulus-loading', to: 'stimulus-loading.js', preload: true
 
