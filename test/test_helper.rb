@@ -37,8 +37,6 @@ if ActiveSupport::TestCase.respond_to?(:fixture_paths=) && Dir.exist?(engine_fix
   ActiveSupport::TestCase.fixture_paths << engine_fixture_path
   # Explicitly load fixtures if needed, adjust based on your setup
   # ActiveSupport::TestCase.fixtures :all
-else
-  # puts "[Fenetre Test Helper] No engine fixtures directory found at: #{engine_fixture_path}. Default fixture loading will apply."
 end
 
 # Include Action Cable testing helpers globally if needed, or specifically in channel tests

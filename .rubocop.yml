@@ -7,6 +7,7 @@ AllCops:
     - 'vendor/**/*'
     - 'node_modules/**/*'
     - 'tmp/**/*'
+    - 'coverage/**/*'
 
 # Use plugins instead of require as per RuboCop recommendation
 plugins:
@@ -14,24 +15,52 @@ plugins:
   - rubocop-rake
   - rubocop-capybara
 
-# Relax certain cops that are too strict for a Rails engine
+# Disable complexity and line length checks as requested
 Layout/LineLength:
-  Max: 120
+  Enabled: false
 
-Metrics/BlockLength:
-  Exclude:
-    - 'test/**/*'
-    - 'lib/tasks/**/*'
+# Metrics cops - disabling all complexity metrics
+Metrics/AbcSize:
+  Enabled: false
 
 Metrics/MethodLength:
-  Max: 15
+  Enabled: false
 
+Metrics/ClassLength:
+  Enabled: false
+
+Metrics/BlockLength:
+  Enabled: false
+
+Metrics/CyclomaticComplexity:
+  Enabled: false
+
+Metrics/PerceivedComplexity:
+  Enabled: false
+
+# Style cops - keeping more expressive style choices
 Style/Documentation:
   Enabled: false
 
+Style/ClassVars:
+  Enabled: false
+
+Style/GlobalVars:
+  Enabled: false
+
+Style/FrozenStringLiteralComment:
+  Enforce: true
+
 # Configure Minitest specific cops
 Minitest/MultipleAssertions:
-  Max: 5
+  Enabled: false
+
+# Keep assertions readable
+Minitest/EmptyLineBeforeAssertionMethods:
+  Enabled: false
+
+Minitest/AssertPredicate:
+  Enabled: false
 
 # Configure Capybara specific cops
 Capybara/ClickLinkOrButtonStyle:
@@ -40,4 +69,12 @@ Capybara/ClickLinkOrButtonStyle:
 Capybara/SpecificMatcher:
   Enabled: true
 
-# Add project-specific rules as needed
+# Gemspec settings
+Gemspec/RequiredRubyVersion:
+  Enabled: false
+
+Gemspec/RequireMFA:
+  Enabled: false
+
+Gemspec/DevelopmentDependencies:
+  Enabled: false

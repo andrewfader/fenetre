@@ -1,7 +1,30 @@
-import { Controller } from "@hotwired/stimulus"
+// Import Stimulus Controller with fallbacks
+let StimulusController;
+
+// Use a simple try-catch pattern for imports
+try {
+  // First try "stimulus" which should be mapped in most apps
+  StimulusController = require('stimulus').Controller;
+} catch (e) {
+  try {
+    // Fallback to the full package name
+    StimulusController = require('@hotwired/stimulus').Controller;
+  } catch (e2) {
+    // Define a minimal placeholder if all else fails
+    console.warn('Fenetre: Could not load Stimulus Controller. Using fallback implementation.');
+    StimulusController = class {
+      static targets = [];
+      static values = {};
+      initialize() {}
+      connect() {
+        console.warn('Using fallback Stimulus controller. Some features may not work correctly.');
+      }
+    };
+  }
+}
 
 // Connects to data-controller="fenetre--video-chat"
-export default class extends Controller {
+export default class extends StimulusController {
   static targets = [ "localVideo", "remoteVideos", "roomId", "chatInput", "chatMessages", "connectionStatus" ]
   static values = { userId: String }
 

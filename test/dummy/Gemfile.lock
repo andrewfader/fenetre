@@ -1,7 +1,9 @@
 PATH
-  remote: /home/andrew/workspace/fenetre
+  remote: ../..
   specs:
     fenetre (0.1.0)
+      importmap-rails
+      propshaft
       rails (>= 6.1)
       stimulus-rails
       turbo-rails
@@ -97,6 +99,10 @@ GEM
       activesupport (>= 6.1)
     i18n (1.14.7)
       concurrent-ruby (~> 1.0)
+    importmap-rails (2.1.0)
+      actionpack (>= 6.0.0)
+      activesupport (>= 6.0.0)
+      railties (>= 6.0.0)
     io-console (0.8.0)
     irb (1.15.2)
       pp (>= 0.6.0)
@@ -194,6 +200,10 @@ GEM
     rake (13.2.1)
     rdoc (6.13.1)
       psych (>= 4.0.0)
+    redis (5.4.0)
+      redis-client (>= 0.22.0)
+    redis-client (0.24.0)
+      connection_pool
     reline (0.6.1)
       io-console (~> 0.5)
     securerandom (0.4.1)
@@ -236,11 +246,18 @@ PLATFORMS
 DEPENDENCIES
   debug
   fenetre!
+  importmap-rails
   propshaft
   puma (>= 5.0)
   rails (~> 8.0.2)
+  redis (>= 4.0)
   sqlite3 (>= 2.1)
+  stimulus-rails
+  turbo-rails
   tzinfo-data
+
+RUBY VERSION
+   ruby 3.4.3p32
 
 BUNDLED WITH
    2.6.7

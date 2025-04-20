@@ -36,6 +36,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'redis', '>= 4.0' # For dummy app Action Cable
   # Core dependencies for the dummy Rails app itself
   spec.add_development_dependency 'actioncable', '>= 8.0'
+  spec.add_development_dependency 'parallel_tests'
   spec.add_development_dependency 'puma', '>= 5.0'
   spec.add_development_dependency 'sqlite3', '>= 1.4' # Use version compatible with Rails 6.1+
   spec.add_development_dependency 'stimulus-rails'

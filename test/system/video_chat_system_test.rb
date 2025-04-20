@@ -82,9 +82,7 @@ class VideoChatSystemTest < ApplicationSystemTestCase
     assert_selector 'video[data-fenetre-video-chat-target="localVideo"]'
 
     # Add connection status element to the test if it exists
-    if has_selector?('[data-fenetre-video-chat-target="connectionStatus"]', wait: 1)
-      assert_selector '[data-fenetre-video-chat-target="connectionStatus"]'
-    end
+    assert_selector '[data-fenetre-video-chat-target="connectionStatus"]' if has_selector?('[data-fenetre-video-chat-target="connectionStatus"]', wait: 1)
   end
 
   test 'multiple users can connect to the same room' do

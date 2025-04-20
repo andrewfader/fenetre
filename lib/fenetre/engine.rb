@@ -36,24 +36,45 @@ module Fenetre
     initializer 'fenetre.importmap', before: 'importmap' do |app|
       # Check if the host app uses importmap-rails
       if app.config.respond_to?(:importmap)
-        # Pin the engine's controllers directory.
-        # Controllers will be loaded automatically by the host app's Stimulus setup
-        # if it imports controllers (e.g., import "./controllers").
-        # The controllers will be available under 'controllers/fenetre/...'
+        # Create a mapping for "stimulus" that points to "@hotwired/stimulus" or the actual file
+        begin
+          # Check if @hotwired/stimulus is already mapped
+          stimulus_mapping = app.config.importmap.to_json(resolver: nil)['imports']&.dig('@hotwired/stimulus')
+
+          # Add the alias mapping for "stimulus" -> "@hotwired/stimulus"
+          unless app.config.importmap.to_json['imports']&.key?('stimulus')
+            if stimulus_mapping
+              # Create an alias to the existing mapping
+              app.config.importmap.pin 'stimulus', to: '@hotwired/stimulus', preload: true
+            elsif File.exist?(Rails.root.join('vendor/javascript/@hotwired/stimulus.js'))
+              # Try to find the file path
+              app.config.importmap.pin 'stimulus', to: '@hotwired/stimulus.js', preload: true
+            elsif defined?(Stimulus::Engine) && Stimulus::Engine.root
+              app.config.importmap.pin 'stimulus', to: 'stimulus.min.js', preload: true
+            else
+              # Last resort, point to a CDN
+              app.config.importmap.pin 'stimulus',
+                                       to: 'https://ga.jspm.io/npm:@hotwired/stimulus@3.2.2/dist/stimulus.js', preload: true
+            end
+          end
+        rescue StandardError => e
+          Rails.logger.warn "Fenetre: Error adding stimulus mapping: #{e.message}"
+        end
+
+        # Ensure "application" is mapped - typically pointing to app/javascript/application.js
+        begin
+          # Look for the application.js file in standard locations
+          app.config.importmap.pin 'application', to: 'application.js', preload: true if !app.config.importmap.to_json['imports']&.key?('application') && File.exist?(Rails.root.join('app/javascript/application.js'))
+        rescue StandardError => e
+          Rails.logger.warn "Fenetre: Error adding application mapping: #{e.message}"
+        end
+
+        # Pin the engine's controllers directory with proper paths
         app.config.importmap.pin_all_from Fenetre::Engine.root.join('app/javascript/controllers'),
                                           under: 'controllers/fenetre', to: 'fenetre/controllers'
 
-        # Pin the engine's main JS entry point if needed, or individual files.
-        # This makes `import 'fenetre'` or specific files available.
-        # Pinning the directory allows importing specific files like `import 'fenetre/some_module'`
-        app.config.importmap.pin_all_from Fenetre::Engine.root.join('app/assets/javascripts/fenetre'),
-                                          under: 'fenetre', to: 'fenetre'
-
-        # Ensure the engine's assets are served
-        app.config.assets.paths << Fenetre::Engine.root.join('app/assets/javascripts')
-        # Add stylesheets if needed via assets
-        # app.config.assets.paths << Fenetre::Engine.root.join('app/assets/stylesheets')
-        # app.config.assets.precompile += %w( fenetre/video_chat.css ) # If using sprockets for CSS
+        # Pin the engine's main JS entry point
+        app.config.importmap.pin 'fenetre', to: 'fenetre.js', preload: true
       else
         # Fallback or warning if importmap is not used by the host app
         Rails.logger.warn "Fenetre requires importmap-rails to automatically load JavaScript controllers. Please install importmap-rails or manually include Fenetre's JavaScript."
@@ -127,33 +148,9 @@ module Fenetre
         if defined?(app.config.propshaft.content_types)
           app.config.propshaft.content_types['.js'] = 'application/javascript'
         end
-      # Check if the app uses sprockets
-      elsif defined?(app.config.assets) && app.config.assets.respond_to?(:paths)
-        # Configure for Sprockets
-        app.config.assets.paths << root.join('app', 'assets', 'javascripts')
-        app.config.assets.paths << root.join('app', 'assets', 'stylesheets')
-        app.config.assets.paths << root.join('app', 'assets', 'javascripts', 'fenetre', 'vendor')
-        app.config.assets.paths << root.join('app', 'assets', 'javascripts', 'stimulus')
-
-        # Ensure proper MIME types for JavaScript files
-        if app.config.assets.respond_to?(:configure)
-          app.config.assets.configure do |config|
-            config.mime_types['.js'] = 'application/javascript'
-          end
-        end
-
-        # Precompile assets for Sprockets
-        app.config.assets.precompile += %w[
-          stimulus.min.js
-          fenetre/vendor/stimulus.min.js
-          fenetre/application.js
-          fenetre/controllers/index.js
-          fenetre/controllers/video_chat_controller.js
-          fenetre/video_chat.css
-        ]
       else
         # Log warning if neither asset pipeline is detected
-        Rails.logger.warn 'Fenetre could not detect Propshaft or Sprockets. JavaScript assets may not load correctly.'
+        Rails.logger.warn 'Fenetre could not detect Propshaft. JavaScript assets may not load correctly.'
       end
     end
   end

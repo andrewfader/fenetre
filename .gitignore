@@ -39,6 +39,8 @@ yarn-debug.log*
 /test/dummy/.yarn-integrity
 /test/dummy/node_modules
 /test/dummy/.DS_Store
+/test/dummy/db/*
 
 # Ignore OS-specific files
 .DS_Store
+
