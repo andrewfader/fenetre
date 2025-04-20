@@ -18,6 +18,7 @@ module Fenetre
                     fenetre_theme: theme
                   }) do
         hidden_room_id_input(room_id) +
+          connection_status_indicator +
           section_heading('Participants') +
           participants_list +
           section_heading('My Video') +
@@ -28,6 +29,13 @@ module Fenetre
           section_heading('Chat') +
           chat_section
       end
+    end
+
+    # Add connection status indicator
+    def connection_status_indicator
+      content_tag(:div, 'Connecting...',
+                  class: 'fenetre-connection-status',
+                  data: { fenetre_video_chat_target: 'connectionStatus' })
     end
 
     def hidden_room_id_input(room_id)
@@ -50,9 +58,10 @@ module Fenetre
     end
 
     def media_control_section
-      content_tag(:div, class: 'fenetre-control-section') do
+      content_tag(:div, class: 'fenetre-controls') do
         toggle_button('Toggle Video', 'toggleVideo') +
-          toggle_button('Toggle Audio', 'toggleAudio')
+          toggle_button('Toggle Audio', 'toggleAudio') +
+          toggle_button('Share Screen', 'toggleScreenShare')
       end
     end
 

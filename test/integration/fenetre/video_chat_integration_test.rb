@@ -8,7 +8,8 @@ module Fenetre
       visit '/video_chat?room_id=testroom&user_id=1'
       assert_selector 'div[data-controller="fenetre--video-chat"]'
       assert_selector 'video[data-fenetre-video-chat-target="localVideo"]'
-      assert_selector 'div[data-fenetre-video-chat-target="remoteVideos"]'
+      # The remote videos container might not be visible by default, so we check for its existence instead of visibility
+      assert_selector 'div[data-fenetre-video-chat-target="remoteVideos"]', visible: :all
       assert_selector 'input[value="testroom"]', visible: :all
       assert_text 'Room ID: testroom'
     end

@@ -2,8 +2,6 @@
 
 source 'https://rubygems.org'
 
-ruby '3.4.3'
-
 gemspec
 gem 'brakeman'
 gem 'rubocop'

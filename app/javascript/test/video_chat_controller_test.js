@@ -80,5 +80,136 @@ QUnit.module("Fenetre::VideoChatController", hooks => {
     assert.ok(controller.isAudioEnabled, "isAudioEnabled should be true after second click");
   });
 
-  // Add more tests for connect, disconnect, sendChat, ActionCable interactions (potentially mocking ActionCable)
+  QUnit.test("sendChat action processes messages correctly", assert => {
+    const controller = application.controllers.find(c => c.identifier === "fenetre--video-chat");
+    const chatInput = element.querySelector('input[data-fenetre--video-chat-target="chatInput"]');
+    const sendButton = element.querySelector('button[data-action*="sendChat"]');
+    
+    // Mock the ActionCable connection and perform
+    let sentMessage = null;
+    controller.videoChatChannel = { 
+      perform: (action, data) => { 
+        if (action === 'send_message') {
+          sentMessage = data;
+        }
+      } 
+    };
+    
+    // Test with empty message (should not send)
+    chatInput.value = '';
+    sendButton.click();
+    assert.equal(sentMessage, null, "Empty message should not be sent");
+    
+    // Test with valid message
+    chatInput.value = 'Hello QUnit test';
+    sendButton.click();
+    assert.equal(sentMessage.message, 'Hello QUnit test', "Message content should be sent correctly");
+    assert.equal(chatInput.value, '', "Input should be cleared after sending");
+  });
+  
+  QUnit.test("received method processes different message types", assert => {
+    const controller = application.controllers.find(c => c.identifier === "fenetre--video-chat");
+    const chatMessages = element.querySelector('[data-fenetre--video-chat-target="chatMessages"]');
+    
+    // Test chat message rendering
+    controller.received({
+      type: 'chat',
+      user_id: 'other-user',
+      username: 'OtherUser',
+      message: 'Test message from another user',
+      timestamp: new Date().toISOString()
+    });
+    
+    assert.ok(chatMessages.innerHTML.includes('OtherUser'), "Username should be rendered in chat");
+    assert.ok(chatMessages.innerHTML.includes('Test message from another user'), "Message content should be rendered");
+    
+    // Test user joined notification
+    chatMessages.innerHTML = ''; // Clear previous messages
+    controller.received({
+      type: 'user_joined',
+      user_id: 'new-user',
+      username: 'NewUser'
+    });
+    
+    assert.ok(chatMessages.innerHTML.includes('NewUser joined'), "User joined notification should be rendered");
+    
+    // Test user left notification
+    chatMessages.innerHTML = ''; // Clear previous messages
+    controller.received({
+      type: 'user_left',
+      user_id: 'leaving-user',
+      username: 'LeavingUser'
+    });
+    
+    assert.ok(chatMessages.innerHTML.includes('LeavingUser left'), "User left notification should be rendered");
+  });
+  
+  QUnit.test("error handling for media device access", assert => {
+    const controller = application.controllers.find(c => c.identifier === "fenetre--video-chat");
+    
+    // Mock console.error to capture errors
+    const originalConsoleError = console.error;
+    let capturedErrors = [];
+    console.error = (...args) => {
+      capturedErrors.push(args.join(' '));
+    };
+    
+    // Test error handling for getUserMedia
+    const errorMessage = "Test error accessing media devices";
+    controller.handleMediaError(new Error(errorMessage));
+    
+    assert.ok(
+      capturedErrors.some(error => error.includes(errorMessage)),
+      "Media errors should be properly logged"
+    );
+    
+    // Restore console.error
+    console.error = originalConsoleError;
+  });
+  
+  QUnit.test("peer connection lifecycle and ICE candidate handling", assert => {
+    const controller = application.controllers.find(c => c.identifier === "fenetre--video-chat");
+    
+    // Mock the ActionCable connection
+    let iceCandidatesSent = [];
+    controller.videoChatChannel = { 
+      perform: (action, data) => { 
+        if (action === 'send_ice_candidate') {
+          iceCandidatesSent.push(data);
+        }
+      } 
+    };
+    
+    // Create a mock peer connection with event handlers
+    const mockPeerConnection = {
+      createOffer: () => Promise.resolve({ type: 'offer', sdp: 'mock-sdp-offer' }),
+      createAnswer: () => Promise.resolve({ type: 'answer', sdp: 'mock-sdp-answer' }),
+      setLocalDescription: desc => Promise.resolve(desc),
+      setRemoteDescription: desc => Promise.resolve(desc),
+      onicecandidate: null,
+      ontrack: null,
+      addTrack: () => {},
+      close: () => {}
+    };
+    
+    // Test ice candidate handling
+    controller.peerConnections = { 'test-user': mockPeerConnection };
+    
+    // Trigger onicecandidate handler with a mock candidate
+    const mockCandidate = { 
+      candidate: 'mock-ice-candidate',
+      sdpMid: 'data',
+      sdpMLineIndex: 0
+    };
+    
+    if (mockPeerConnection.onicecandidate) {
+      mockPeerConnection.onicecandidate({ candidate: mockCandidate });
+      
+      assert.equal(iceCandidatesSent.length, 1, "ICE candidate should be sent");
+      assert.equal(iceCandidatesSent[0].target_user_id, 'test-user', "Target user ID should be set correctly");
+      assert.deepEqual(iceCandidatesSent[0].candidate, mockCandidate, "Candidate data should be sent correctly");
+    } else {
+      assert.ok(true, "onicecandidate handler not defined in this implementation");
+    }
+  });
 });

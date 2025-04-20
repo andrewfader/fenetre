@@ -1,15 +1,16 @@
 import { Controller } from "../../../../assets/javascripts/fenetre/vendor/stimulus.umd.js"
-import consumer from "../channels/consumer" // Adjust path if needed based on host app structure
 
 // Connects to data-controller="fenetre--video-chat"
 export default class extends Controller {
-  static targets = [ "localVideo", "remoteVideos", "roomId" ]
+  static targets = [ "localVideo", "remoteVideos", "roomId", "chatInput", "chatMessages", "connectionStatus" ]
   static values = { userId: String }
 
   connect() {
     console.log("VideoChat controller connected");
     this.peerConnections = {};
     this.localStream = null;
+    this.screenStream = null;
+    this.isScreenSharing = false;
     this.roomId = this.roomIdTarget.value;
 
     if (!this.roomId) {
@@ -17,22 +18,114 @@ export default class extends Controller {
       return;
     }
 
+    this.updateConnectionStatus('connecting');
+    
+    // Listen for ActionCable connection events
+    this.setupConnectionEventListeners();
+    
     this.startLocalVideo()
       .then(() => this.createSubscription())
-      .catch(error => console.error("Error initializing video chat:", error));
+      .catch(error => this.handleMediaError(error));
   }
 
+  // Set up listeners for ActionCable connection events
+  setupConnectionEventListeners() {
+    // Listen for ActionCable connected event
+    document.addEventListener('cable-ready:connected', this.handleActionCableConnected.bind(this));
+    
+    // Listen for ActionCable disconnected event
+    document.addEventListener('cable-ready:disconnected', this.handleActionCableDisconnected.bind(this));
+    
+    // Listen for screen sharing status changes (for testing)
+    document.addEventListener('screen-sharing-changed', this.handleScreenSharingChange.bind(this));
+  }
+  
+  // Handle ActionCable connected event
+  handleActionCableConnected(event) {
+    console.log('ActionCable connected:', event);
+    this.updateConnectionStatus('connected');
+  }
+  
+  // Handle ActionCable disconnected event
+  handleActionCableDisconnected(event) {
+    console.log('ActionCable disconnected:', event);
+    this.updateConnectionStatus('disconnected');
+  }
+  
+  // Handle screen sharing status change (for testing)
+  handleScreenSharingChange(event) {
+    console.log('Screen sharing status changed:', event.detail.status);
+    if (event.detail.status === 'started') {
+      const button = this.element.querySelector('button[data-action*="fenetre--video-chat#toggleScreenShare"]');
+      if (button) {
+        button.classList.add('screen-sharing');
+        button.textContent = 'Stop Sharing';
+      }
+    } else if (event.detail.status === 'stopped') {
+      const button = this.element.querySelector('button[data-action*="fenetre--video-chat#toggleScreenShare"]');
+      if (button) {
+        button.classList.remove('screen-sharing');
+        button.textContent = 'Share Screen';
+      }
+    }
+  }
+  
   disconnect() {
     console.log("VideoChat controller disconnected");
+    
+    // Remove event listeners
+    document.removeEventListener('cable-ready:connected', this.handleActionCableConnected);
+    document.removeEventListener('cable-ready:disconnected', this.handleActionCableDisconnected);
+    document.removeEventListener('screen-sharing-changed', this.handleScreenSharingChange);
+    
     if (this.subscription) {
       this.subscription.unsubscribe();
     }
     if (this.localStream) {
       this.localStream.getTracks().forEach(track => track.stop());
     }
+    if (this.screenStream) {
+      this.screenStream.getTracks().forEach(track => track.stop());
+    }
     Object.values(this.peerConnections).forEach(pc => pc.close());
     this.peerConnections = {};
     this.remoteVideosTarget.innerHTML = ''; // Clear remote videos
+    this.updateConnectionStatus('disconnected');
+  }
+
+  updateConnectionStatus(status) {
+    if (this.hasConnectionStatusTarget) {
+      const statusElement = this.connectionStatusTarget;
+      
+      // Clear previous status classes
+      statusElement.classList.remove('fenetre-status-connecting', 'fenetre-status-connected', 
+                                    'fenetre-status-disconnected', 'fenetre-status-reconnecting',
+                                    'fenetre-status-error');
+      
+      // Add appropriate class and text based on status
+      switch(status) {
+        case 'connecting':
+          statusElement.classList.add('fenetre-status-connecting');
+          statusElement.textContent = 'Connecting...';
+          break;
+        case 'connected':
+          statusElement.classList.add('fenetre-status-connected');
+          statusElement.textContent = 'Connected';
+          break;
+        case 'disconnected':
+          statusElement.classList.add('fenetre-status-disconnected');
+          statusElement.textContent = 'Disconnected';
+          break;
+        case 'reconnecting':
+          statusElement.classList.add('fenetre-status-reconnecting');
+          statusElement.textContent = 'Reconnecting...';
+          break;
+        case 'error':
+          statusElement.classList.add('fenetre-status-error');
+          statusElement.textContent = 'Connection Error';
+          break;
+      }
+    }
   }
 
   async startLocalVideo() {
@@ -47,16 +140,38 @@ export default class extends Controller {
     }
   }
 
+  handleMediaError(error) {
+    console.error("Media access error:", error);
+    // Show user-friendly error message
+    const errorMessage = document.createElement('div');
+    errorMessage.className = 'fenetre-media-error';
+    errorMessage.textContent = "Could not access camera or microphone. Please check your device permissions.";
+    errorMessage.style.color = 'red';
+    errorMessage.style.padding = '10px';
+    errorMessage.style.margin = '10px 0';
+    errorMessage.style.backgroundColor = '#ffeeee';
+    errorMessage.style.border = '1px solid red';
+    this.element.insertBefore(errorMessage, this.element.firstChild);
+  }
+
   createSubscription() {
-    this.subscription = consumer.subscriptions.create(
+    if (!window.ActionCable) {
+      console.error("ActionCable not available. Make sure it's properly loaded in your application.");
+      this.updateConnectionStatus('error');
+      return;
+    }
+
+    this.subscription = window.ActionCable.createConsumer().subscriptions.create(
       { channel: "Fenetre::VideoChatChannel", room_id: this.roomId },
       {
         connected: () => {
           console.log(`Connected to ActionCable channel: Fenetre::VideoChatChannel (Room: ${this.roomId})`);
+          this.updateConnectionStatus('connected');
           this.announceJoin();
         },
         disconnected: () => {
           console.log("Disconnected from ActionCable channel");
+          this.updateConnectionStatus('disconnected');
         },
         received: (data) => {
           console.log("Received data:", data);
@@ -183,37 +298,194 @@ export default class extends Controller {
   }
 
   appendChatMessage(data) {
-    const chatBox = document.getElementById('fenetre-chat-box');
-    if (chatBox) {
-      const div = document.createElement('div');
-      div.textContent = `User ${data.from}: ${data.message}`;
-      chatBox.appendChild(div);
-    }
+    if (!this.hasChatMessagesTarget) return;
+    
+    const messageEl = document.createElement('div');
+    messageEl.className = 'fenetre-chat-message';
+    messageEl.textContent = `${data.from}: ${data.message}`;
+    this.chatMessagesTarget.appendChild(messageEl);
+    this.chatMessagesTarget.scrollTop = this.chatMessagesTarget.scrollHeight;
   }
 
   // Chat functionality
   sendChat(event) {
     event.preventDefault();
-    const chatInput = this.element.querySelector('[data-fenetre-video-chat-target="chatInput"]');
-    if (!chatInput || !chatInput.value.trim()) return;
     
-    const message = chatInput.value.trim();
-    console.log(`Sending chat message: ${message}`);
+    if (!this.hasChatInputTarget) {
+      console.error("Chat input target not found!");
+      return;
+    }
+    
+    const message = this.chatInputTarget.value.trim();
+    if (!message) return;
     
     // Send via ActionCable
-    this.subscription.perform("send_message", { message });
+    if (this.subscription) {
+      this.subscription.perform("send_message", { message });
+      
+      // Clear input field
+      this.chatInputTarget.value = "";
+      
+      // Add to local display
+      if (this.hasChatMessagesTarget) {
+        const messageEl = document.createElement('div');
+        messageEl.className = 'fenetre-chat-message fenetre-chat-message-self';
+        messageEl.textContent = "You: " + message;
+        this.chatMessagesTarget.appendChild(messageEl);
+        this.chatMessagesTarget.scrollTop = this.chatMessagesTarget.scrollHeight;
+      }
+    } else {
+      console.warn("Subscription not available for sending message");
+    }
+  }
+  
+  // Video toggle functionality
+  toggleVideo() {
+    if (this.localStream) {
+      const videoTracks = this.localStream.getVideoTracks();
+      if (videoTracks.length > 0) {
+        const track = videoTracks[0];
+        track.enabled = !track.enabled;
+        
+        // Update UI to reflect current state
+        const button = this.element.querySelector('button[data-action*="fenetre--video-chat#toggleVideo"]');
+        if (button) {
+          button.classList.toggle('video-off', !track.enabled);
+          button.setAttribute('aria-label', track.enabled ? 'Turn off camera' : 'Turn on camera');
+        }
+      }
+    }
+  }
+  
+  // Audio toggle functionality
+  toggleAudio() {
+    if (this.localStream) {
+      const audioTracks = this.localStream.getAudioTracks();
+      if (audioTracks.length > 0) {
+        const track = audioTracks[0];
+        track.enabled = !track.enabled;
+        
+        // Update UI to reflect current state
+        const button = this.element.querySelector('button[data-action*="fenetre--video-chat#toggleAudio"]');
+        if (button) {
+          button.classList.toggle('audio-off', !track.enabled);
+          button.setAttribute('aria-label', track.enabled ? 'Mute microphone' : 'Unmute microphone');
+        }
+      }
+    }
+  }
+
+  // Screen sharing functionality
+  toggleScreenShare() {
+    if (this.isScreenSharing) {
+      this.stopScreenSharing();
+    } else {
+      this.startScreenSharing();
+    }
+  }
+
+  async startScreenSharing() {
+    try {
+      // Get screen sharing stream
+      this.screenStream = await navigator.mediaDevices.getDisplayMedia({ 
+        video: { 
+          cursor: "always",
+          displaySurface: "monitor" 
+        },
+        audio: false 
+      });
+
+      // Save current video stream for later
+      this.savedVideoTrack = this.localStream.getVideoTracks()[0];
+      
+      // Replace video track in local stream with screen share track
+      const screenTrack = this.screenStream.getVideoTracks()[0];
+      
+      // Replace track in all peer connections
+      Object.values(this.peerConnections).forEach(pc => {
+        const senders = pc.getSenders();
+        const videoSender = senders.find(sender => 
+          sender.track && sender.track.kind === 'video'
+        );
+        
+        if (videoSender) {
+          videoSender.replaceTrack(screenTrack);
+        }
+      });
+      
+      // Replace track in local video
+      this.localStream.removeTrack(this.savedVideoTrack);
+      this.localStream.addTrack(screenTrack);
+      
+      // Show local screen share
+      this.localVideoTarget.srcObject = this.localStream;
+      
+      // Update UI
+      const button = this.element.querySelector('button[data-action*="fenetre--video-chat#toggleScreenShare"]');
+      if (button) {
+        button.classList.add('screen-sharing');
+        button.setAttribute('aria-label', 'Stop screen sharing');
+        button.textContent = 'Stop Sharing';
+      }
+      
+      this.isScreenSharing = true;
+      
+      // Handle case when user stops sharing via browser UI
+      screenTrack.onended = () => {
+        this.stopScreenSharing();
+      };
+      
+    } catch (error) {
+      console.error("Error starting screen share:", error);
+    }
+  }
+
+  stopScreenSharing() {
+    if (!this.isScreenSharing || !this.screenStream || !this.savedVideoTrack) {
+      return;
+    }
     
-    // Clear input field
-    chatInput.value = '';
-    
-    // Add to local display (optional, usually handled by the broadcast)
-    const chatMessages = this.element.querySelector('[data-fenetre-video-chat-target="chatMessages"]');
-    if (chatMessages) {
-      const messageEl = document.createElement('div');
-      messageEl.classList.add('fenetre-chat-message', 'fenetre-chat-message-self');
-      messageEl.textContent = `You: ${message}`;
-      chatMessages.appendChild(messageEl);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+    try {
+      // Stop all tracks in screen stream
+      this.screenStream.getTracks().forEach(track => track.stop());
+      
+      // Remove screen sharing track from local stream
+      const screenTrack = this.localStream.getVideoTracks()[0];
+      if (screenTrack) {
+        this.localStream.removeTrack(screenTrack);
+      }
+      
+      // Add back the original camera video track
+      this.localStream.addTrack(this.savedVideoTrack);
+      
+      // Replace track in all peer connections
+      Object.values(this.peerConnections).forEach(pc => {
+        const senders = pc.getSenders();
+        const videoSender = senders.find(sender => 
+          sender.track && sender.track.kind === 'video'
+        );
+        
+        if (videoSender) {
+          videoSender.replaceTrack(this.savedVideoTrack);
+        }
+      });
+      
+      // Update local video
+      this.localVideoTarget.srcObject = this.localStream;
+      
+      // Update UI
+      const button = this.element.querySelector('button[data-action*="fenetre--video-chat#toggleScreenShare"]');
+      if (button) {
+        button.classList.remove('screen-sharing');
+        button.setAttribute('aria-label', 'Share screen');
+        button.textContent = 'Share Screen';
+      }
+      
+      this.isScreenSharing = false;
+      this.screenStream = null;
+      
+    } catch (error) {
+      console.error("Error stopping screen share:", error);
     }
   }
 
@@ -260,6 +532,10 @@ export default class extends Controller {
 
     pc.oniceconnectionstatechange = () => {
       console.log(`ICE connection state for ${peerId}: ${pc.iceConnectionState}`);
+      
+      // Update connection status UI for this peer
+      this.updatePeerConnectionState(peerId, pc);
+      
       if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed' || pc.iceConnectionState === 'failed') {
         this.removePeerConnection(peerId);
       }
@@ -267,9 +543,13 @@ export default class extends Controller {
 
     pc.onconnectionstatechange = () => {
       console.log(`Connection state for ${peerId}: ${pc.connectionState}`);
-       if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
-         this.removePeerConnection(peerId);
-       }
+      
+      // Update connection status UI for this peer
+      this.updatePeerConnectionState(peerId, pc);
+      
+      if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
+        this.removePeerConnection(peerId);
+      }
     };
 
     // If offering, create and send offer
@@ -284,6 +564,37 @@ export default class extends Controller {
     }
 
     return pc;
+  }
+
+  updatePeerConnectionState(peerId, pc) {
+    // Find the status indicator for this peer
+    const videoContainer = this.remoteVideosTarget.querySelector(`[data-peer-id="${peerId}"]`);
+    if (!videoContainer) return;
+    
+    let statusElement = videoContainer.querySelector('.fenetre-peer-status');
+    if (!statusElement) {
+      statusElement = document.createElement('div');
+      statusElement.className = 'fenetre-peer-status';
+      videoContainer.appendChild(statusElement);
+    }
+    
+    // Clear previous classes
+    statusElement.className = 'fenetre-peer-status';
+    
+    // Set status based on connection state
+    if (pc.connectionState === 'connected') {
+      statusElement.classList.add('fenetre-peer-connected');
+      statusElement.textContent = 'Connected';
+    } else if (pc.connectionState === 'connecting' || pc.iceConnectionState === 'checking') {
+      statusElement.classList.add('fenetre-peer-connecting');
+      statusElement.textContent = 'Connecting...';
+    } else if (pc.connectionState === 'disconnected' || pc.iceConnectionState === 'disconnected') {
+      statusElement.classList.add('fenetre-peer-disconnected');
+      statusElement.textContent = 'Disconnected';
+    } else if (pc.connectionState === 'failed' || pc.iceConnectionState === 'failed') {
+      statusElement.classList.add('fenetre-peer-failed');
+      statusElement.textContent = 'Connection Failed';
+    }
   }
 
   removePeerConnection(peerId) {
@@ -313,8 +624,10 @@ export default class extends Controller {
     if (!videoElement) {
       const videoContainer = document.createElement('div');
       videoContainer.setAttribute('data-peer-id', peerId);
+      videoContainer.className = 'fenetre-remote-video-container';
       videoContainer.style.display = 'inline-block'; // Basic layout
       videoContainer.style.margin = '5px';
+      videoContainer.style.position = 'relative';
 
       videoElement = document.createElement('video');
       videoElement.setAttribute('autoplay', '');
@@ -327,10 +640,21 @@ export default class extends Controller {
       peerIdLabel.textContent = `User: ${peerId}`;
       peerIdLabel.style.fontSize = '12px';
       peerIdLabel.style.textAlign = 'center';
-
+      
+      // Add connection status indicator
+      const statusElement = document.createElement('div');
+      statusElement.className = 'fenetre-peer-status fenetre-peer-connecting';
+      statusElement.textContent = 'Connecting...';
+      
       videoContainer.appendChild(videoElement);
       videoContainer.appendChild(peerIdLabel);
+      videoContainer.appendChild(statusElement);
       this.remoteVideosTarget.appendChild(videoContainer);
+      
+      // Update connection state for this new peer
+      if (this.peerConnections[peerId]) {
+        this.updatePeerConnectionState(peerId, this.peerConnections[peerId]);
+      }
     }
 
     videoElement.srcObject = stream;

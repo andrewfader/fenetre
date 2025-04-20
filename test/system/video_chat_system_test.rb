@@ -121,4 +121,31 @@ class VideoChatSystemTest < ApplicationSystemTestCase
     # Check for any custom room features based on parameters
     # (These would depend on your specific implementation)
   end
+
+  test 'user can toggle screen sharing' do
+    visit '/video_chat?room_id=screenshare&user_id=7'
+
+    # Verify the screen sharing button exists
+    assert_selector 'button[data-action*="fenetre--video-chat#toggleScreenShare"]'
+
+    # Click the screen sharing button
+    # Note: In a test environment, the browser may not actually show the screen sharing dialog
+    # We're just verifying the button exists and can be clicked without errors
+    find('button[data-action*="fenetre--video-chat#toggleScreenShare"]').click
+
+    # Verify the button is still there after clicking (no JS errors)
+    assert_selector 'button[data-action*="fenetre--video-chat#toggleScreenShare"]'
+  end
+
+  test 'connection status indicator is displayed' do
+    visit '/video_chat?room_id=connectionstatus&user_id=8'
+
+    # Verify the connection status element exists
+    assert_selector '[data-fenetre-video-chat-target="connectionStatus"]'
+
+    # Initially it should show "Connecting..." (or whatever initial state you set)
+    within('[data-fenetre-video-chat-target="connectionStatus"]') do
+      assert_text(/Connecting\.\.\.|Connected|Disconnected/i)
+    end
+  end
 end

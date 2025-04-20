@@ -85,3 +85,141 @@
 .fenetre-video-chat-container #fenetre-chat-box div {
   margin-bottom: 0.3em;
 }
+
+/* Connection status styles */
+.fenetre-connection-status {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-bottom: 1rem;
+}
+
+.fenetre-status-connecting {
+  background-color: #ffeeba;
+  color: #856404;
+}
+
+.fenetre-status-connected {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.fenetre-status-disconnected {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.fenetre-status-reconnecting {
+  background-color: #e2e3e5;
+  color: #383d41;
+  animation: pulse 1.5s infinite;
+}
+
+.fenetre-status-error {
+  background-color: #f8d7da;
+  color: #721c24;
+  font-weight: 600;
+}
+
+/* Peer connection status indicators */
+.fenetre-peer-status {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  border-radius: 8px;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+}
+
+.fenetre-peer-connecting {
+  background-color: rgba(255, 193, 7, 0.8);
+  color: #212529;
+}
+
+.fenetre-peer-connected {
+  background-color: rgba(40, 167, 69, 0.8);
+  color: white;
+}
+
+.fenetre-peer-disconnected, .fenetre-peer-failed {
+  background-color: rgba(220, 53, 69, 0.8);
+  color: white;
+}
+
+/* Remote video container styling */
+.fenetre-remote-video-container {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Screen sharing button styles */
+.fenetre-control-button.screen-sharing {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.fenetre-theme-dark .fenetre-control-button.screen-sharing {
+  background-color: #138496;
+}
+
+.fenetre-theme-light .fenetre-control-button.screen-sharing {
+  background-color: #17a2b8;
+}
+
+/* Animation for reconnecting status */
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Control buttons styles */
+.fenetre-controls {
+  display: flex;
+  gap: 10px;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.fenetre-control-button {
+  padding: 8px 12px;
+  border-radius: 20px;
+  border: none;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.fenetre-theme-dark .fenetre-control-button {
+  background-color: #343a40;
+  color: #f8f9fa;
+}
+
+.fenetre-theme-light .fenetre-control-button {
+  background-color: #e9ecef;
+  color: #212529;
+}
+
+.fenetre-control-button:hover {
+  opacity: 0.9;
+}
+
+.fenetre-control-button.video-off,
+.fenetre-control-button.audio-off {
+  background-color: #dc3545;
+  color: white;
+}
