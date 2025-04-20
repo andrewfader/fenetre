@@ -1,4 +1,4 @@
-import { Controller } from "../../../../assets/javascripts/fenetre/vendor/stimulus.umd.js"
+import { Controller } from "@hotwired/stimulus"
 
 // Connects to data-controller="fenetre--video-chat"
 export default class extends Controller {

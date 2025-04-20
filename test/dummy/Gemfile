@@ -16,11 +16,11 @@ gem 'puma', '>= 5.0'
 # Add Fenetre gem from the parent directory
 gem 'fenetre', path: '..' # Use relative path
 
-# Dependencies needed by Fenetre are now in the root Gemfile
-# gem "turbo-rails"
-# gem "stimulus-rails"
-# gem "redis", ">= 4.0" # For Action Cable
-# gem "importmap-rails" # For JS management
+# Dependencies needed for importmap configuration
+gem 'importmap-rails'
+gem 'turbo-rails'
+gem 'stimulus-rails'
+gem 'redis', '>= 4.0' # For Action Cable
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem 'tzinfo-data', platforms: %i[windows jruby]
