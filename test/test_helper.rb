@@ -9,6 +9,7 @@ require 'rails/test_help'
 require 'action_cable/channel/test_case' # Ensure Action Cable test case is loaded
 require 'capybara/rails' # Add Capybara for integration tests
 require 'capybara/minitest' # Add Capybara Minitest assertions
+require 'importmap-rails' # Ensure importmap-rails is loaded
 
 # Filter out Minitest backtrace while allowing backtrace from other libraries
 # to be shown.

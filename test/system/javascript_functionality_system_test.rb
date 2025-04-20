@@ -258,12 +258,12 @@ class JavascriptFunctionalitySystemTest < ApplicationSystemTestCase
 
     # For this test, we'll directly update the connection status element to simulate state changes
     # This tests the visual representation of status changes, which is what users care about
-    
+
     # Simulate the "Connected" state by directly updating the UI
     page.execute_script(<<-JS)
       const statusElement = document.querySelector('[data-fenetre-video-chat-target="connectionStatus"]');
       if (statusElement) {
-        statusElement.classList.remove('fenetre-status-connecting', 'fenetre-status-disconnected', 
+        statusElement.classList.remove('fenetre-status-connecting', 'fenetre-status-disconnected',#{' '}
                                       'fenetre-status-reconnecting', 'fenetre-status-error');
         statusElement.classList.add('fenetre-status-connected');
         statusElement.textContent = 'Connected';
@@ -277,7 +277,7 @@ class JavascriptFunctionalitySystemTest < ApplicationSystemTestCase
     page.execute_script(<<-JS)
       const statusElement = document.querySelector('[data-fenetre-video-chat-target="connectionStatus"]');
       if (statusElement) {
-        statusElement.classList.remove('fenetre-status-connecting', 'fenetre-status-connected', 
+        statusElement.classList.remove('fenetre-status-connecting', 'fenetre-status-connected',#{' '}
                                       'fenetre-status-reconnecting', 'fenetre-status-error');
         statusElement.classList.add('fenetre-status-disconnected');
         statusElement.textContent = 'Disconnected';
@@ -314,7 +314,7 @@ class JavascriptFunctionalitySystemTest < ApplicationSystemTestCase
           removeEventListener: function() {},
           onended: null
         };
-        
+      #{'  '}
         // Create a mock screen stream
         const mockStream = {
           id: 'mock-screen-stream',
@@ -325,7 +325,7 @@ class JavascriptFunctionalitySystemTest < ApplicationSystemTestCase
           addTrack: function() {},
           removeTrack: function() {}
         };
-        
+      #{'  '}
         // Return a promise that resolves with our mock stream
         return Promise.resolve(mockStream);
       };

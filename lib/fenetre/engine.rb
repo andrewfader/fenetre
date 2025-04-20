@@ -10,6 +10,9 @@ require_relative 'version'
 # Explicitly require helper to ensure it's loaded before the engine initializers run
 require_relative '../../app/helpers/fenetre/video_chat_helper'
 
+# Register MIME types used by the engine
+Mime::Type.register 'application/javascript', :js, %w[application/javascript text/javascript]
+
 module Fenetre
   module Automatic; end
 
@@ -88,6 +91,72 @@ module Fenetre
       # Explicitly include in base classes for reliability
       ::ActionController::Base.helper Fenetre::VideoChatHelper if defined?(::ActionController::Base)
       ::ActionView::Base.include Fenetre::VideoChatHelper if defined?(::ActionView::Base)
+    end
+
+    # Configure Rack middleware to ensure JavaScript files are served with the correct MIME type
+    # This runs before asset configuration to ensure it's applied in all environments
+    initializer 'fenetre.mime_types', before: :add_to_prepare_blocks do |app|
+      # Add custom middleware to explicitly set JavaScript MIME types
+      app.middleware.insert_before(::Rack::Runtime, Class.new do
+        def initialize(app)
+          @app = app
+        end
+
+        def call(env)
+          status, headers, response = @app.call(env)
+          
+          # Explicitly set content type for JavaScript files
+          if env['PATH_INFO'].end_with?('.js')
+            headers['Content-Type'] = 'application/javascript'
+          end
+          
+          [status, headers, response]
+        end
+      end)
+    end
+
+    # Ensure JavaScript assets are loaded correctly
+    initializer 'fenetre.assets' do |app|
+      # Check if the app uses propshaft
+      if defined?(app.config.propshaft)
+        # Configure for Propshaft
+        app.config.propshaft.paths << root.join('app', 'assets', 'javascripts')
+        app.config.propshaft.paths << root.join('app', 'assets', 'stylesheets')
+        app.config.propshaft.paths << root.join('app', 'assets', 'javascripts', 'fenetre', 'vendor')
+        app.config.propshaft.paths << root.join('app', 'assets', 'javascripts', 'stimulus')
+        
+        # Ensure proper MIME types for JavaScript files in Propshaft
+        if defined?(app.config.propshaft.content_types)
+          app.config.propshaft.content_types['.js'] = 'application/javascript'
+        end
+      # Check if the app uses sprockets
+      elsif defined?(app.config.assets) && app.config.assets.respond_to?(:paths)
+        # Configure for Sprockets
+        app.config.assets.paths << root.join('app', 'assets', 'javascripts')
+        app.config.assets.paths << root.join('app', 'assets', 'stylesheets')
+        app.config.assets.paths << root.join('app', 'assets', 'javascripts', 'fenetre', 'vendor')
+        app.config.assets.paths << root.join('app', 'assets', 'javascripts', 'stimulus')
+        
+        # Ensure proper MIME types for JavaScript files
+        if app.config.assets.respond_to?(:configure)
+          app.config.assets.configure do |config|
+            config.mime_types['.js'] = 'application/javascript'
+          end
+        end
+        
+        # Precompile assets for Sprockets
+        app.config.assets.precompile += %w[
+          stimulus.min.js
+          fenetre/vendor/stimulus.min.js
+          fenetre/application.js
+          fenetre/controllers/index.js
+          fenetre/controllers/video_chat_controller.js
+          fenetre/video_chat.css
+        ]
+      else
+        # Log warning if neither asset pipeline is detected
+        Rails.logger.warn "Fenetre could not detect Propshaft or Sprockets. JavaScript assets may not load correctly."
+      end
     end
   end
 end
