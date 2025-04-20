@@ -2,18 +2,18 @@
 
 # Pin npm packages by running ./bin/importmap
 
-# Core dependencies
-pin '@hotwired/stimulus', to: 'stimulus.min.js', preload: true
-pin '@hotwired/stimulus-loading', to: 'stimulus-loading.js', preload: true
+# Core dependencies - update paths to match how engine serves them
+pin '@hotwired/stimulus', to: 'fenetre/vendor/stimulus.min.js', preload: true
+pin '@hotwired/stimulus-loading', to: 'stimulus/stimulus-loading.js', preload: true
 pin '@hotwired/turbo-rails', to: 'turbo.min.js', preload: true
 pin '@hotwired/turbo', to: 'turbo.js', preload: true
 
-# Fenetre engine JS is fully vendored and does not require importmap pins.
-# Remove any importmap pins for fenetre assets if present.
+# Engine's JavaScript modules with correct namespacing
+pin 'fenetre', to: 'fenetre.js', preload: true
+pin 'fenetre/application', to: 'fenetre/application.js', preload: true
 
-# Pin this engine's JS modules for use by the host application
-pin 'application', to: 'fenetre/application.js'
-pin 'controllers/index', to: 'fenetre/controllers/index.js'
+# Pin controller with correct path to avoid 404 errors
+# Updated to match actual file location and engine configuration
 pin 'controllers/fenetre/video_chat_controller', to: 'fenetre/controllers/video_chat_controller.js'
 
 # Pin testing libraries and test files (only for development/test)

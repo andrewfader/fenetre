@@ -1,9 +1,12 @@
 # Pin npm packages by running ./bin/importmap
 
-pin "application", preload: true
+# Core dependencies (used by the engine)
 pin "@hotwired/turbo-rails", to: "turbo.min.js", preload: true
 pin "@hotwired/stimulus", to: "stimulus.min.js", preload: true
 pin "@hotwired/stimulus-loading", to: "stimulus-loading.js", preload: true
+
+# Host application's entry point
+pin "dummy_app", to: "application.js", preload: true
 
 # Pin Fenetre engine assets
 pin "fenetre", to: "fenetre.js", preload: true
@@ -13,4 +16,4 @@ pin "fenetre/controllers/video_chat_controller", to: "fenetre/controllers/video_
 
 # Use the directory structure for controllers
 pin_all_from "app/javascript/controllers", under: "controllers"
-pin_all_from "app/javascript", under: "application"
+pin_all_from "app/javascript", under: "dummy_app"
