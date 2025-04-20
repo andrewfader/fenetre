@@ -110,72 +110,69 @@ module Fenetre
     end
 
     test 'specific bare specifiers for application and @hotwired/stimulus are properly mapped' do
+      errors = []
       # Set up specialized JavaScript tracking for specific bare specifiers
       page.execute_script(<<~JS)
-          window.specificBareSpecifierErrors = [];
-        #{'  '}
-          // Special handler for the specific bare specifiers we're targeting
-          window.addEventListener('error', function(event) {
-            const errorText = event.message || (event.error && event.error.toString()) || '';
-        #{'    '}
-            // Check for the specific bare specifier errors we're investigating
-            if (errorText.includes('bare specifier') &&#{' '}
-                (errorText.includes('application') ||#{' '}
-                 errorText.includes('@hotwired/stimulus'))) {
-              window.specificBareSpecifierErrors.push({
-                message: errorText,
-                source: event.filename || 'unknown',
-                specifier: errorText.includes('application') ? 'application' : '@hotwired/stimulus'
-              });
-            }
-          });
-        #{'  '}
-          // Also track unhandled promise rejections which might contain module errors
-          window.addEventListener('unhandledrejection', function(event) {
-            const errorText = event.reason && event.reason.toString ? event.reason.toString() : '';
-        #{'    '}
-            if (errorText.includes('bare specifier') &&#{' '}
-                (errorText.includes('application') ||#{' '}
-                 errorText.includes('@hotwired/stimulus'))) {
-              window.specificBareSpecifierErrors.push({
-                message: errorText,
-                source: 'promise rejection',
-                specifier: errorText.includes('application') ? 'application' : '@hotwired/stimulus'
-              });
-            }
-          });
-        JS)
+        window.specificBareSpecifierErrors = [];
+        // Special handler for the specific bare specifiers we're targeting
+        window.addEventListener('error', function(event) {
+          const errorText = event.message || (event.error && event.error.toString()) || '';
+          // Check for the specific bare specifier errors we're investigating
+          if (errorText.includes('bare specifier') &&
+              (errorText.includes('application') ||
+               errorText.includes('@hotwired/stimulus'))) {
+            window.specificBareSpecifierErrors.push({
+              message: errorText,
+              source: event.filename || 'unknown',
+              specifier: errorText.includes('application') ? 'application' : '@hotwired/stimulus'
+            });
+          }
+        });
+        // Also track unhandled promise rejections which might contain module errors
+        window.addEventListener('unhandledrejection', function(event) {
+          const errorText = event.reason && event.reason.toString ? event.reason.toString() : '';
+          if (errorText.includes('bare specifier') &&
+              (errorText.includes('application') ||
+               errorText.includes('@hotwired/stimulus'))) {
+            window.specificBareSpecifierErrors.push({
+              message: errorText,
+              source: 'promise rejection',
+              specifier: errorText.includes('application') ? 'application' : '@hotwired/stimulus'
+            });
+          }
+        });
+      JS
 
-        # Visit the page and wait for it to load
-        visit '/video_chat'
+      # Visit the page and wait for it to load
+      visit '/video_chat'
 
-        # Wait for our video chat controller to appear
-        assert_selector '[data-controller="fenetre--video-chat"]', wait: 5
+      # Wait for our video chat controller to appear
+      assert_selector '[data-controller="fenetre--video-chat"]', wait: 5
 
-        # Give time for JS to execute and errors to be captured
-        sleep 3
+      # Give time for JS to execute and errors to be captured
+      sleep 3
 
-        # Check if we caught any of the specific bare specifier errors
-        # Group errors by specifier
+      # Always define errors before using it
+      errors = page.evaluate_script('window.specificBareSpecifierErrors || []')
 
-        # Assert no errors for each specifier with descriptive messages
-        assert_empty spage.evaluate_script('window.specificBareSpecifierErrors || []').select { |err| err['specifier'] == 'application' },
-                     "Found 'application' bare specifier errors: #{page.evaluate_script('window.specificBareSpecifierErrors || []').select { |err| err['specifier'] == 'application' }.inspect}"
+      # Assert no errors for each specifier with descriptive messages
+      assert_empty errors.select { |err| err['specifier'] == 'application' },
+                   "Found 'application' bare specifier errors: #{errors.select { |err| err['specifier'] == 'application' }.inspect}"
 
-        assert_empty         page.evaluate_script('window.specificBareSpecifierErrors || []').select { |err| err['specifier'] == '@hotwired/stimulus' }
-                     "Found '@hotwired/stimulus' bare specifier errors: #{page.evaluate_script('window.specificBareSpecifierErrors || []').select { |err| err['specifier'] == '@hotwired/stimulus' }.inspect}"
+      assert_empty errors.select { |err| err['specifier'] == '@hotwired/stimulus' },
+                   "Found '@hotwired/stimulus' bare specifier errors: #{errors.select { |err| err['specifier'] == '@hotwired/stimulus' }.inspect}"
 
-        # Verify import map mappings
-        importmap_data = page.evaluate_script(<<~JS)
-          (function() {
-            const importMapTag = document.querySelector('script[type="importmap"]');
-            if (!importMapTag) return { imports: {} };
-            try {
-              return JSON.parse(importMapTag.textContent);
-            } catch (e) {
-              return { imports: {} };
-            }
-          })()
+      # Verify import map mappings
+      importmap_data = page.evaluate_script(<<~JS)
+        (function() {
+          const importMapTag = document.querySelector('script[type="importmap"]');
+          if (!importMapTag) return { imports: {} };
+          try {
+            return JSON.parse(importMapTag.textContent);
+          } catch (e) {
+            return { imports: {} };
+          }
+        })()
       JS
 
       imports = importmap_data['imports'] || {}
