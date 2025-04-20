@@ -11,7 +11,7 @@ module Fenetre
         window.consoleErrors = [];
         window.moduleErrors = [];
         window.networkErrors = [];
-        
+
         // Track console errors
         const originalConsoleError = console.error;
         console.error = function() {
@@ -19,7 +19,7 @@ module Fenetre
           window.consoleErrors.push(errorMsg);
           originalConsoleError.apply(console, arguments);
         };
-        
+
         // Track uncaught errors
         window.addEventListener('error', function(event) {
           window.jsErrors.push({
@@ -28,18 +28,18 @@ module Fenetre
             lineno: event.lineno
           });
         });
-        
+
         // Specifically track module loading errors
         window.addEventListener('unhandledrejection', function(event) {
           if (event.reason && typeof event.reason.message === 'string') {
-            if (event.reason.message.includes('module') || 
-                event.reason.message.includes('import') || 
+            if (event.reason.message.includes('module') ||#{' '}
+                event.reason.message.includes('import') ||#{' '}
                 event.reason.message.includes('bare specifier')) {
               window.moduleErrors.push(event.reason.message);
             }
           }
         });
-        
+
         // Intercept network requests to track 404s
         const originalFetch = window.fetch;
         window.fetch = function(input, init) {
@@ -55,56 +55,58 @@ module Fenetre
             });
         };
       JS
-      
+
       # Visit the page that loads our JavaScript
       visit '/video_chat'
-      
+
       # Give time for scripts to load and errors to be captured
       sleep 3
-      
+
       # Print all errors for debugging
       js_errors = page.evaluate_script('window.jsErrors || []')
       console_errors = page.evaluate_script('window.consoleErrors || []')
       module_errors = page.evaluate_script('window.moduleErrors || []')
       network_errors = page.evaluate_script('window.networkErrors || []')
-      
+
       puts "JS Errors: #{js_errors.inspect}" unless js_errors.empty?
       puts "Console Errors: #{console_errors.inspect}" unless console_errors.empty?
       puts "Module Errors: #{module_errors.inspect}" unless module_errors.empty?
       puts "Network Errors: #{network_errors.inspect}" unless network_errors.empty?
-      
+
       # Check for specific errors we want to test
-      
+
       # 1. Check for "bare specifier" errors
       bare_specifier_errors = js_errors.select { |err| err['message'].to_s.include?('bare specifier') }
       module_bare_errors = module_errors.select { |err| err.include?('bare specifier') }
       console_bare_errors = console_errors.select { |err| err.include?('bare specifier') }
-      
+
       assert_empty bare_specifier_errors + module_bare_errors + console_bare_errors,
-                  "Found bare specifier errors: #{(bare_specifier_errors + module_bare_errors + console_bare_errors).inspect}"
-      
+                   "Found bare specifier errors: #{(bare_specifier_errors + module_bare_errors + console_bare_errors).inspect}"
+
       # 2. Check for "Import maps are not allowed" errors
       import_map_errors = console_errors.select { |err| err.include?('Import maps are not allowed') }
+
       assert_empty import_map_errors,
-                  "Found import map errors: #{import_map_errors.inspect}"
-      
+                   "Found import map errors: #{import_map_errors.inspect}"
+
       # 3. Check for missing JS files (404 errors)
       js_404_urls = [
         '/assets/fenetre/vendor/stimulus.min.js',
         '/javascript/controllers/fenetre/video_chat_controller.js'
       ]
-      
+
       js_404_errors = js_404_urls.select do |url|
         network_errors.any? { |err| err[:url].to_s.include?(url) }
       end
-      
+
       assert_empty js_404_errors,
-                  "Found 404 errors for critical JavaScript files: #{js_404_errors.inspect}"
-      
+                   "Found 404 errors for critical JavaScript files: #{js_404_errors.inspect}"
+
       # 4. Check for module loading failures
       loading_failed_errors = console_errors.select { |err| err.include?('Loading failed for the module') }
+
       assert_empty loading_failed_errors,
-                  "Found module loading failures: #{loading_failed_errors.inspect}"
+                   "Found module loading failures: #{loading_failed_errors.inspect}"
     end
   end
 end

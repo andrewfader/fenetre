@@ -30,6 +30,7 @@ module Fenetre
     test 'video chat ActionCable connection can be established' do
       # Visit the room page first to establish a session
       get '/video_chat?room_id=requesttest&user_id=42'
+
       assert_response :success
 
       # Simulate a WebSocket connection to the ActionCable server

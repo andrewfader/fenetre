@@ -11,14 +11,15 @@ class HelperAvailabilityTest < ActionDispatch::IntegrationTest
     controller.extend(Fenetre::VideoChatHelper)
 
     # Test if the method exists
-    assert controller.respond_to?(:fenetre_video_chat_container),
-           'fenetre_video_chat_container helper should be available'
+    assert_respond_to controller, :fenetre_video_chat_container,
+                      'fenetre_video_chat_container helper should be available'
   end
 end
 
 class HelperAvailableTest < ActionDispatch::IntegrationTest
   test 'fenetre_video_chat_container helper is available in views' do
     get '/video/test_helper'
+
     assert_response :success
     assert_includes @response.body, 'fenetre-video-chat-container',
                     'Helper output should be present in the rendered view'

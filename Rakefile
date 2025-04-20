@@ -9,4 +9,25 @@ Rake::TestTask.new(:test) do |t|
   t.test_files = FileList['test/**/*_test.rb']
 end
 
-task default: :test
+# Add RuboCop task
+begin
+  require 'rubocop/rake_task'
+  RuboCop::RakeTask.new(:rubocop) do |task|
+    task.options = ['--display-cop-names']
+  end
+rescue LoadError
+  desc 'Run RuboCop'
+  task :rubocop do
+    abort 'RuboCop is not available. Run `bundle install` to install it.'
+  end
+end
+
+# Add Coverage task
+desc 'Generate test coverage report'
+task :coverage do
+  ENV['COVERAGE'] = 'true'
+  Rake::Task['test'].invoke
+end
+
+# Run tests with coverage by default
+task default: %i[rubocop coverage]

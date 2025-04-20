@@ -1,0 +1,43 @@
+AllCops:
+  TargetRubyVersion: 3.0
+  NewCops: enable
+  Exclude:
+    - 'test/dummy/**/*'
+    - 'bin/**/*'
+    - 'vendor/**/*'
+    - 'node_modules/**/*'
+    - 'tmp/**/*'
+
+# Use plugins instead of require as per RuboCop recommendation
+plugins:
+  - rubocop-minitest
+  - rubocop-rake
+  - rubocop-capybara
+
+# Relax certain cops that are too strict for a Rails engine
+Layout/LineLength:
+  Max: 120
+
+Metrics/BlockLength:
+  Exclude:
+    - 'test/**/*'
+    - 'lib/tasks/**/*'
+
+Metrics/MethodLength:
+  Max: 15
+
+Style/Documentation:
+  Enabled: false
+
+# Configure Minitest specific cops
+Minitest/MultipleAssertions:
+  Max: 5
+
+# Configure Capybara specific cops
+Capybara/ClickLinkOrButtonStyle:
+  Enabled: true
+
+Capybara/SpecificMatcher:
+  Enabled: true
+
+# Add project-specific rules as needed

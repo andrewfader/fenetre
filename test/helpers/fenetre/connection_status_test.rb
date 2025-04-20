@@ -14,6 +14,7 @@ module Fenetre
 
       # Check for connection status element
       status_element = doc.at('[data-fenetre-video-chat-target="connectionStatus"]')
+
       assert_not_nil status_element, 'Connection status element should exist'
 
       # Check that it has appropriate default styling

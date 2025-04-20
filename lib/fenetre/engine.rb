@@ -63,7 +63,7 @@ module Fenetre
     # Include ActionCable in the host application - ensure it doesn't interfere with Devise
     initializer 'fenetre.action_cable', after: :load_config_initializers do
       # Register the channel path instead of using channel_class_names
-      if defined?(ActionCable) && defined?(ActionCable.server)
+      if defined?(ActionCable.server)
         action_cable_paths = Array(Rails.root.join('app/channels'))
         action_cable_paths << Fenetre::Engine.root.join('app/channels')
 
@@ -104,12 +104,10 @@ module Fenetre
 
         def call(env)
           status, headers, response = @app.call(env)
-          
+
           # Explicitly set content type for JavaScript files
-          if env['PATH_INFO'].end_with?('.js')
-            headers['Content-Type'] = 'application/javascript'
-          end
-          
+          headers['Content-Type'] = 'application/javascript' if env['PATH_INFO'].end_with?('.js')
+
           [status, headers, response]
         end
       end)
@@ -124,7 +122,7 @@ module Fenetre
         app.config.propshaft.paths << root.join('app', 'assets', 'stylesheets')
         app.config.propshaft.paths << root.join('app', 'assets', 'javascripts', 'fenetre', 'vendor')
         app.config.propshaft.paths << root.join('app', 'assets', 'javascripts', 'stimulus')
-        
+
         # Ensure proper MIME types for JavaScript files in Propshaft
         if defined?(app.config.propshaft.content_types)
           app.config.propshaft.content_types['.js'] = 'application/javascript'
@@ -136,14 +134,14 @@ module Fenetre
         app.config.assets.paths << root.join('app', 'assets', 'stylesheets')
         app.config.assets.paths << root.join('app', 'assets', 'javascripts', 'fenetre', 'vendor')
         app.config.assets.paths << root.join('app', 'assets', 'javascripts', 'stimulus')
-        
+
         # Ensure proper MIME types for JavaScript files
         if app.config.assets.respond_to?(:configure)
           app.config.assets.configure do |config|
             config.mime_types['.js'] = 'application/javascript'
           end
         end
-        
+
         # Precompile assets for Sprockets
         app.config.assets.precompile += %w[
           stimulus.min.js
@@ -155,14 +153,14 @@ module Fenetre
         ]
       else
         # Log warning if neither asset pipeline is detected
-        Rails.logger.warn "Fenetre could not detect Propshaft or Sprockets. JavaScript assets may not load correctly."
+        Rails.logger.warn 'Fenetre could not detect Propshaft or Sprockets. JavaScript assets may not load correctly.'
       end
     end
   end
 end
 
 # Mountable status engine for health checks - ensure it doesn't conflict with other gems
-class AutomaticEngine < ::Rails::Engine
+class AutomaticEngine < Rails::Engine
   isolate_namespace Fenetre::Automatic
 
   # Use a lower priority to ensure it loads after authentication engines

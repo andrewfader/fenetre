@@ -13,7 +13,7 @@ module Fenetre
         // Arrays to collect errors
         window.jsErrors = [];
         window.jsExceptions = [];
-        
+
         // Save original console method
         const originalConsoleError = console.error;
 
@@ -53,22 +53,25 @@ module Fenetre
 
       # Collect JavaScript errors
       error_data = collect_errors
-      
+
       # Check specifically for bare specifier errors
       bare_specifier_errors = error_data[:errors].select { |error| error.include?('bare specifier') }
-      assert_empty bare_specifier_errors, 
+
+      assert_empty bare_specifier_errors,
                    "Found bare specifier errors: #{bare_specifier_errors.join(', ')}"
-      
+
       # Also make sure we don't have exceptions that might be related to module loading
-      module_exceptions = error_data[:exceptions].select do |ex| 
+      module_exceptions = error_data[:exceptions].select do |ex|
         ex[:message]&.include?('import') || ex[:message]&.include?('module')
       end
+
       assert_empty module_exceptions,
                    "Found module loading exceptions: #{module_exceptions.inspect}"
-      
+
       # Check for other JS errors that might be module-related
       js_errors_regexp = /modules?|import|export|require/i
-      module_errors = error_data[:errors].select { |error| error =~ js_errors_regexp }
+      module_errors = error_data[:errors].grep(js_errors_regexp)
+
       assert_empty module_errors,
                    "Found module-related errors: #{module_errors.join(', ')}"
     end

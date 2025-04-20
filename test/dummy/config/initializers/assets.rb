@@ -13,12 +13,12 @@ if defined?(Rails.application.config.assets) && Rails.application.config.assets.
   # Add both vendor paths to ensure Stimulus is found
   Rails.application.config.assets.paths << Fenetre::Engine.root.join('app/assets/javascripts/fenetre/vendor')
   Rails.application.config.assets.paths << Fenetre::Engine.root.join('app/assets/javascripts/stimulus')
-  
+
   # Set the proper MIME type for JavaScript files
   Rails.application.config.assets.configure do |config|
     config.mime_types['.js'] = 'application/javascript'
   end
-  
+
   # Ensure we precompile both the namespaced and root paths for Stimulus to support both importmap and direct asset access
   Rails.application.config.assets.precompile += %w[
     stimulus.min.js

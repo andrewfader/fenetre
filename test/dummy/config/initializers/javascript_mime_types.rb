@@ -14,13 +14,13 @@ class JavascriptMimeTypeMiddleware
 
   def call(env)
     status, headers, response = @app.call(env)
-    
+
     # Check if the request is for a JavaScript file
     if env['PATH_INFO'] =~ /\.js$/
       # Set the correct MIME type for JavaScript files
       headers['Content-Type'] = 'application/javascript'
     end
-    
+
     [status, headers, response]
   end
 end

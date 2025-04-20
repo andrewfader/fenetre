@@ -1,5 +1,19 @@
 # frozen_string_literal: true
 
+# Set up SimpleCov for code coverage before loading any other code
+require 'simplecov'
+SimpleCov.start 'rails' do
+  # Track all files in the gem, not just lib
+  add_filter '/test/'
+  add_filter '/config/'
+
+  # Add specific groups for better coverage analysis
+  add_group 'Channels', 'app/channels'
+  add_group 'Helpers', 'app/helpers'
+  add_group 'JavaScript', ['app/assets/javascripts', 'app/javascript']
+  add_group 'Library', 'lib'
+end
+
 # Configure Rails Environment
 ENV['RAILS_ENV'] = 'test'
 
@@ -33,19 +47,21 @@ end
 # end
 
 # Include Capybara DSL in Integration Tests for JavaScript capabilities
-class ActionDispatch::IntegrationTest
-  include Capybara::DSL
-  # Make `assert_*` methods behave like Minitest assertions
-  include Capybara::Minitest::Assertions
+module ActionDispatch
+  class IntegrationTest
+    include Capybara::DSL
+    # Make `assert_*` methods behave like Minitest assertions
+    include Capybara::Minitest::Assertions
 
-  # Set the Capybara driver for JS tests (can be :selenium_chrome_headless, :cuprite, etc.)
-  # Ensure the driver matches the one used in system tests if consistency is needed
-  Capybara.javascript_driver = :selenium_chrome_headless
+    # Set the Capybara driver for JS tests (can be :selenium_chrome_headless, :cuprite, etc.)
+    # Ensure the driver matches the one used in system tests if consistency is needed
+    Capybara.javascript_driver = :selenium_chrome_headless
 
-  # Optional: Reset sessions and driver after each test
-  teardown do
-    Capybara.reset_sessions!
-    Capybara.use_default_driver
+    # Optional: Reset sessions and driver after each test
+    teardown do
+      Capybara.reset_sessions!
+      Capybara.use_default_driver
+    end
   end
 end
 

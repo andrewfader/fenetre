@@ -104,6 +104,7 @@ GEM
     connection_pool (2.5.1)
     crass (1.0.6)
     date (3.4.1)
+    docile (1.4.1)
     drb (2.2.1)
     erubi (1.13.1)
     globalid (1.2.1)
@@ -234,6 +235,9 @@ GEM
     rubocop-ast (1.44.1)
       parser (>= 3.3.7.2)
       prism (~> 1.4)
+    rubocop-capybara (2.22.1)
+      lint_roller (~> 1.1)
+      rubocop (~> 1.72, >= 1.72.1)
     rubocop-minitest (0.38.0)
       lint_roller (~> 1.1)
       rubocop (>= 1.75.0, < 2.0)
@@ -250,6 +254,12 @@ GEM
       rexml (~> 3.2, >= 3.2.5)
       rubyzip (>= 1.2.2, < 3.0)
       websocket (~> 1.0)
+    simplecov (0.22.0)
+      docile (~> 1.1)
+      simplecov-html (~> 0.11)
+      simplecov_json_formatter (~> 0.1)
+    simplecov-html (0.13.1)
+    simplecov_json_formatter (0.1.4)
     sqlite3 (2.6.0)
       mini_portile2 (~> 2.8.0)
     sqlite3 (2.6.0-x86_64-linux-gnu)
@@ -292,15 +302,15 @@ DEPENDENCIES
   rake
   redis (>= 4.0)
   rubocop
+  rubocop-capybara
   rubocop-minitest
   rubocop-rake
   selenium-webdriver
+  simplecov
+  simplecov-html
   sqlite3 (>= 1.4)
   stimulus-rails
   turbo-rails
-
-RUBY VERSION
-   ruby 3.4.3p32
 
 BUNDLED WITH
    2.6.7

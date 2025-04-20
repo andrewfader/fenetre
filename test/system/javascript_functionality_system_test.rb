@@ -135,6 +135,7 @@ class JavascriptFunctionalitySystemTest < ApplicationSystemTestCase
 
     # Verify chat messages are cleared after sending
     input_value = page.evaluate_script("document.querySelector('input[data-fenetre-video-chat-target=\"chatInput\"]').value")
+
     assert_empty input_value, 'Chat input should be cleared after sending'
 
     # Log all events for debugging
@@ -225,6 +226,7 @@ class JavascriptFunctionalitySystemTest < ApplicationSystemTestCase
 
     # Verify element attributes and state
     room_id = page.evaluate_script("document.querySelector('input[data-fenetre-video-chat-target=\"roomId\"]').value")
+
     assert_equal 'js-dom-test', room_id, 'Room ID should be correctly set'
   end
 
@@ -298,6 +300,7 @@ class JavascriptFunctionalitySystemTest < ApplicationSystemTestCase
     # The screen sharing button should be in its initial state
     # (not in the screen-sharing active state)
     sharing_button = find('button[data-action*="fenetre--video-chat#toggleScreenShare"]')
+
     assert_not sharing_button[:class].include?('screen-sharing'),
                'Screen sharing button should not have screen-sharing class initially'
 

@@ -40,4 +40,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'sqlite3', '>= 1.4' # Use version compatible with Rails 6.1+
   spec.add_development_dependency 'stimulus-rails'
   spec.add_development_dependency 'turbo-rails'
+  spec.metadata['rubygems_mfa_required'] = 'true'
 end

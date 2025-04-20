@@ -81,7 +81,8 @@ module Fenetre
     test 'subscribes and streams for a room when user is present' do
       room_id = 'test_room_123'
       subscribe_with_connection({ room_id: room_id })
-      assert subscription.confirmed?
+
+      assert_predicate subscription, :confirmed?
     end
 
     test 'rejects subscription when no user is present' do
@@ -89,17 +90,20 @@ module Fenetre
       # Create connection with nil user *before* subscribing
       @connection = stub_connection(current_user: nil)
       subscribe(room_id: room_id, channel: 'Fenetre::VideoChatChannel')
-      assert subscription.rejected?
+
+      assert_predicate subscription, :rejected?
     end
 
     test 'rejects subscription when room_id is missing' do
       subscribe_with_connection({}) # No room_id provided
-      assert subscription.rejected?
+
+      assert_predicate subscription, :rejected?
     end
 
     test 'rejects subscription when room_id is blank' do
       subscribe_with_connection({ room_id: '' }) # Blank room_id provided
-      assert subscription.rejected?
+
+      assert_predicate subscription, :rejected?
     end
 
     test '#signal broadcasts payload to the correct stream' do
@@ -107,7 +111,8 @@ module Fenetre
       user_id = 99
       subscribe_with_connection({ room_id: room_id }, user: User.new(user_id))
       subscription.instance_variable_set(:@room_id, room_id)
-      assert subscription.confirmed?
+
+      assert_predicate subscription, :confirmed?
       signal_payload = { 'sdp' => 'session description' }
       signal_type = 'offer'
       expected = {
@@ -116,6 +121,7 @@ module Fenetre
         'payload' => signal_payload
       }
       subscription.perform(:signal, { type: signal_type, payload: signal_payload })
+
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected)
     end
 
@@ -124,7 +130,8 @@ module Fenetre
       user_id = 101
       subscribe_with_connection({ room_id: room_id }, user: User.new(user_id))
       subscription.instance_variable_set(:@room_id, room_id)
-      assert subscription.confirmed?
+
+      assert_predicate subscription, :confirmed?
       subscription.perform(:join_room, {})
       expected = {
         'type' => 'join',
@@ -132,6 +139,7 @@ module Fenetre
         'participants' => [user_id],
         'turbo_stream' => '<turbo-stream action="append">...</turbo-stream>'
       }
+
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected)
     end
 
@@ -140,7 +148,8 @@ module Fenetre
       user_id = 102
       subscribe_with_connection({ room_id: room_id }, user: User.new(user_id))
       subscription.instance_variable_set(:@room_id, room_id)
-      assert subscription.confirmed?
+
+      assert_predicate subscription, :confirmed?
       subscription.perform(:join_room, {})
       unsubscribe
       expected = {
@@ -148,19 +157,22 @@ module Fenetre
         'from' => user_id,
         'participants' => []
       }
+
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected)
     end
 
     test 'guests are rejected if room is locked' do
       room_id = 'locked_room'
       subscribe_with_connection({ room_id: room_id, room_locked: true }, user: User.new(2), user_role: :guest)
-      assert subscription.rejected?, 'Guest should be rejected if room is locked'
+
+      assert_predicate subscription, :rejected?, 'Guest should be rejected if room is locked'
     end
 
     test 'host can join locked room' do
       room_id = 'locked_room'
       subscribe_with_connection({ room_id: room_id, room_locked: true }, user: User.new(1), user_role: :host)
-      assert subscription.confirmed?, 'Host should be able to join locked room'
+
+      assert_predicate subscription, :confirmed?, 'Host should be able to join locked room'
     end
 
     test 'room metadata is broadcast on join' do
@@ -170,7 +182,8 @@ module Fenetre
       subscribe_with_connection({ room_id: room_id, room_topic: topic, max_participants: max_p }, user: User.new(3),
                                                                                                   user_role: :guest)
       subscription.instance_variable_set(:@room_id, room_id)
-      assert subscription.confirmed?
+
+      assert_predicate subscription, :confirmed?
       subscription.perform(:join_room, {})
       expected = {
         'type' => 'join',
@@ -180,6 +193,7 @@ module Fenetre
         'max_participants' => max_p,
         'turbo_stream' => '<turbo-stream action="append">...</turbo-stream>'
       }
+
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected)
     end
 
@@ -188,7 +202,8 @@ module Fenetre
       user_id = 10
       subscribe_with_connection({ room_id: room_id }, user: User.new(user_id), user_role: :guest)
       subscription.instance_variable_set(:@room_id, room_id)
-      assert subscription.confirmed?
+
+      assert_predicate subscription, :confirmed?
       subscription.perform(:join_room, {})
       expected_join = {
         'type' => 'join',
@@ -196,6 +211,7 @@ module Fenetre
         'participants' => [user_id],
         'turbo_stream' => '<turbo-stream action="append">...</turbo-stream>'
       }
+
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected_join)
       unsubscribe
       expected_leave = {
@@ -203,6 +219,7 @@ module Fenetre
         'from' => user_id,
         'participants' => []
       }
+
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected_leave)
     end
 
@@ -212,13 +229,15 @@ module Fenetre
       kicked_user_id = 42
       subscribe_with_connection({ room_id: room_id }, user: User.new(host_id), user_role: :host)
       subscription.instance_variable_set(:@room_id, room_id)
-      assert subscription.confirmed?
+
+      assert_predicate subscription, :confirmed?
       subscription.perform(:kick, { user_id: kicked_user_id })
       expected = {
         'type' => 'kick',
         'from' => host_id,
         'payload' => { 'user_id' => kicked_user_id }
       }
+
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected)
     end
 
@@ -227,7 +246,8 @@ module Fenetre
       user_id = 103
       subscribe_with_connection({ room_id: room_id }, user: User.new(user_id))
       subscription.instance_variable_set(:@room_id, room_id)
-      assert subscription.confirmed?
+
+      assert_predicate subscription, :confirmed?
       payload = { 'reason' => 'question' }
       subscription.perform(:signal, { type: 'raise_hand', payload: payload })
       expected = {
@@ -235,6 +255,7 @@ module Fenetre
         'from' => user_id,
         'payload' => payload
       }
+
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected)
     end
 
@@ -244,13 +265,15 @@ module Fenetre
       muted_user_id = 42
       subscribe_with_connection({ room_id: room_id }, user: User.new(host_id), user_role: :host)
       subscription.instance_variable_set(:@room_id, room_id)
-      assert subscription.confirmed?
+
+      assert_predicate subscription, :confirmed?
       subscription.perform(:mute, { user_id: muted_user_id })
       expected_mute = {
         'type' => 'mute',
         'from' => host_id,
         'payload' => { 'user_id' => muted_user_id }
       }
+
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected_mute)
       subscription.perform(:unmute, { user_id: muted_user_id })
       expected_unmute = {
@@ -258,6 +281,7 @@ module Fenetre
         'from' => host_id,
         'payload' => { 'user_id' => muted_user_id }
       }
+
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected_unmute)
     end
 
@@ -266,13 +290,15 @@ module Fenetre
       user_id = 5
       subscribe_with_connection({ room_id: room_id }, user: User.new(user_id))
       subscription.instance_variable_set(:@room_id, room_id)
-      assert subscription.confirmed?
+
+      assert_predicate subscription, :confirmed?
       subscription.perform(:signal, { type: 'raise_hand', payload: { user_id: user_id } })
       expected_raise = {
         'type' => 'raise_hand',
         'from' => user_id,
         'payload' => { 'user_id' => user_id }
       }
+
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected_raise)
       subscription.perform(:signal, { type: 'lower_hand', payload: { user_id: user_id } })
       expected_lower = {
@@ -280,6 +306,7 @@ module Fenetre
         'from' => user_id,
         'payload' => { 'user_id' => user_id }
       }
+
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected_lower)
     end
 
@@ -287,7 +314,8 @@ module Fenetre
       room_id = 'turbo_room'
       subscribe_with_connection({ room_id: room_id }, user: User.new(7), user_role: :guest)
       subscription.instance_variable_set(:@room_id, room_id)
-      assert subscription.confirmed?
+
+      assert_predicate subscription, :confirmed?
       subscription.perform(:join_room, {})
       expected = {
         'type' => 'join',
@@ -295,6 +323,7 @@ module Fenetre
         'participants' => [7],
         'turbo_stream' => '<turbo-stream action="append">...</turbo-stream>'
       }
+
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected)
     end
 
@@ -303,7 +332,8 @@ module Fenetre
       user_id = 100
       subscribe_with_connection({ room_id: room_id }, user: User.new(user_id), user_role: :guest)
       subscription.instance_variable_set(:@room_id, room_id)
-      assert subscription.confirmed?
+
+      assert_predicate subscription, :confirmed?
       subscription.perform(:join_room, {})
       expected_join = {
         'type' => 'join',
@@ -311,6 +341,7 @@ module Fenetre
         'participants' => [user_id],
         'turbo_stream' => '<turbo-stream action="append">...</turbo-stream>'
       }
+
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected_join)
       unsubscribe
       expected_leave = {
@@ -318,6 +349,7 @@ module Fenetre
         'from' => user_id,
         'participants' => []
       }
+
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected_leave)
     end
 
@@ -326,7 +358,8 @@ module Fenetre
       user_id = 104
       subscribe_with_connection({ room_id: room_id }, user: User.new(user_id))
       subscription.instance_variable_set(:@room_id, room_id)
-      assert subscription.confirmed?
+
+      assert_predicate subscription, :confirmed?
       message_text = 'Hello world!'
       subscription.perform(:chat, { message: message_text })
       expected = {
@@ -334,6 +367,7 @@ module Fenetre
         'from' => user_id,
         'payload' => { 'message' => message_text, 'to' => nil }
       }
+
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected)
     end
 
@@ -342,11 +376,14 @@ module Fenetre
       user_id = 200
       subscribe_with_connection({ room_id: room_id }, user: User.new(user_id), user_role: :guest)
       subscription.instance_variable_set(:@room_id, room_id)
-      assert subscription.confirmed?
+
+      assert_predicate subscription, :confirmed?
       $fenetre_analytics = [] # Ensure clean state
       subscription.perform(:join_room, {})
+
       assert_includes $fenetre_analytics, [:join, user_id, room_id]
       unsubscribe
+
       assert_includes $fenetre_analytics, [:leave, user_id, room_id]
     end
 
@@ -357,7 +394,7 @@ module Fenetre
       Fenetre::VideoChatChannel.class_variable_set(:@@participants, { room_id => [1, 2, 3] })
       subscribe_with_connection({ room_id: room_id, max_participants: max_p }, user: User.new(4), user_role: :guest)
       # Subscription should be rejected during the `subscribed` call
-      assert subscription.rejected?, 'Should reject if room is full'
+      assert_predicate subscription, :rejected?, 'Should reject if room is full'
     end
 
     test 'allows join if room is not full (max participants)' do
@@ -365,7 +402,8 @@ module Fenetre
       max_p = 3
       Fenetre::VideoChatChannel.class_variable_set(:@@participants, { room_id => [1, 2] })
       subscribe_with_connection({ room_id: room_id, max_participants: max_p }, user: User.new(3), user_role: :guest)
-      assert subscription.confirmed?, 'Should allow join if room is not full'
+
+      assert_predicate subscription, :confirmed?, 'Should allow join if room is not full'
     end
 
     test 'screen sharing events are broadcast if enabled' do
@@ -373,7 +411,8 @@ module Fenetre
       user_id = 105
       subscribe_with_connection({ room_id: room_id, enable_screen_sharing: true }, user: User.new(user_id))
       subscription.instance_variable_set(:@room_id, room_id)
-      assert subscription.confirmed?
+
+      assert_predicate subscription, :confirmed?
       payload = { 'action' => 'start' }
       subscription.perform(:signal, { type: 'screen_share', payload: payload })
       expected = {
@@ -381,6 +420,7 @@ module Fenetre
         'from' => user_id,
         'payload' => payload
       }
+
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected)
     end
 
@@ -390,7 +430,8 @@ module Fenetre
       recipient_id = 2
       subscribe_with_connection({ room_id: room_id, enable_private_chat: true }, user: User.new(user_id))
       subscription.instance_variable_set(:@room_id, room_id)
-      assert subscription.confirmed?
+
+      assert_predicate subscription, :confirmed?
       message_text = 'hi'
       subscription.perform(:chat, { message: message_text, to: recipient_id })
       expected = {
@@ -398,6 +439,7 @@ module Fenetre
         'from' => user_id,
         'payload' => { 'message' => message_text, 'to' => recipient_id }
       }
+
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected)
     end
 
@@ -406,7 +448,8 @@ module Fenetre
       ice_servers = [{ 'urls' => 'stun:custom.example.com' }]
       subscribe_with_connection({ room_id: room_id, ice_servers: ice_servers })
       subscription.instance_variable_set(:@room_id, room_id)
-      assert subscription.confirmed?
+
+      assert_predicate subscription, :confirmed?
       # Check if the params were correctly stored in the channel instance
       assert_equal ice_servers, subscription.instance_variable_get(:@params)[:ice_servers]
     end

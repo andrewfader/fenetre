@@ -16,18 +16,21 @@ module Fenetre
 
       # Check top-level div
       top_div = doc.at('div')
+
       assert_not_nil top_div, 'Top-level div should exist'
       assert_equal 'fenetre--video-chat', top_div['data-controller']
       assert_equal user_id.to_s, top_div['data-fenetre-video-chat-user-id-value']
 
       # Check hidden input for room_id
       hidden_input = top_div.at('input[type="hidden"]')
+
       assert_not_nil hidden_input, 'Hidden input for room_id should exist'
       assert_equal room_id, hidden_input['value']
       assert_equal 'roomId', hidden_input['data-fenetre-video-chat-target']
 
       # Check local video element
       local_video = top_div.at('video[data-fenetre-video-chat-target="localVideo"]')
+
       assert_not_nil local_video, 'Local video element should exist'
       assert local_video.has_attribute?('autoplay'), 'Video should have autoplay attribute'
       assert local_video.has_attribute?('playsinline'), 'Video should have playsinline attribute'
@@ -35,6 +38,7 @@ module Fenetre
 
       # Check remote videos container
       remote_videos_div = top_div.at('div[data-fenetre-video-chat-target="remoteVideos"]')
+
       assert_not_nil remote_videos_div, 'Remote videos container div should exist'
 
       # Check headings (optional but good for structure)
@@ -44,6 +48,7 @@ module Fenetre
 
     test 'fenetre_video_chat_container renders required data-controller and targets' do
       html = fenetre_video_chat_container('room123', 'user456')
+
       assert_includes html, 'data-controller="fenetre--video-chat"'
       assert_includes html, 'data-fenetre-video-chat-target="localVideo"'
       assert_includes html, 'data-fenetre-video-chat-target="remoteVideos"'
@@ -54,6 +59,7 @@ module Fenetre
 
     test 'fenetre_video_chat_container includes video and remote video containers' do
       html = fenetre_video_chat_container('roomABC', 'userXYZ')
+
       assert_includes html, '<video'
       assert_includes html, 'data-fenetre-video-chat-target="localVideo"'
       assert_includes html, 'data-fenetre-video-chat-target="remoteVideos"'

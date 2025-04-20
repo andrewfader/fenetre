@@ -25,7 +25,7 @@ namespace :test do
     # Wait for QUnit to finish and results to be available
     # Wait for the #qunit-testresult element which QUnit populates when done.
     # Increase wait time if tests are slow to load/run.
-    results_element = find('#qunit-testresult', wait: 30)
+    find('#qunit-testresult', wait: 30)
 
     # Extract results using JavaScript evaluation
     total = evaluate_script("document.querySelector('#qunit-testresult .total').textContent")
@@ -35,7 +35,7 @@ namespace :test do
     puts "QUnit Results: #{total} tests, #{passed} passed, #{failed} failed."
 
     # Report failures if any
-    if failed.to_i > 0
+    if failed.to_i.positive?
       puts "\nJavaScript Test Failures:"
       # Find all failed test list items
       failed_tests = all('#qunit-tests > li.fail')

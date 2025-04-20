@@ -5,7 +5,7 @@ require 'capybara/rails'
 
 class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
   # Detect if running in CI environment (common CI env vars)
-  CI_ENV = ENV['CI'] || ENV['GITHUB_ACTIONS'] || ENV['GITLAB_CI'] || ENV['JENKINS_URL']
+  CI_ENV = ENV['CI'] || ENV['GITHUB_ACTIONS'] || ENV['GITLAB_CI'] || ENV.fetch('JENKINS_URL', nil)
 
   # Configure Chrome for either CI or local testing
   driven_by :selenium, using: :headless_chrome, screen_size: [1400, 1400] do |options|

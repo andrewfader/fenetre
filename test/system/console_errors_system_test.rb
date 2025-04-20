@@ -88,6 +88,7 @@ class ConsoleErrorsSystemTest < ApplicationSystemTestCase
 
     # Collect and assert on JavaScript errors
     error_data = collect_all_errors
+
     assert_no_javascript_issues(error_data)
   end
 
@@ -107,6 +108,7 @@ class ConsoleErrorsSystemTest < ApplicationSystemTestCase
 
     # Collect and assert on JavaScript errors
     error_data = collect_all_errors
+
     assert_no_javascript_issues(error_data)
   end
 
@@ -123,6 +125,7 @@ class ConsoleErrorsSystemTest < ApplicationSystemTestCase
 
     # Collect and assert on JavaScript errors
     error_data = collect_all_errors
+
     assert_no_javascript_issues(error_data)
   end
 end

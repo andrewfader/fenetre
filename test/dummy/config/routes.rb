@@ -22,7 +22,7 @@ Rails.application.routes.draw do
   get '/video/test_helper', to: 'video#test_helper'
 
   # Route for the QUnit test runner
-  get '/javascript_tests', to: proc { |env|
+  get '/javascript_tests', to: proc { |_env|
     [200, { 'Content-Type' => 'text/html' }, [File.read(Rails.root.join('public', 'test_runner.html'))]]
   }, constraints: -> { Rails.env.test? || Rails.env.development? }
 end

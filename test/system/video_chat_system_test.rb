@@ -53,10 +53,12 @@ class VideoChatSystemTest < ApplicationSystemTestCase
 
     # Find the chat input field and verify it exists
     input_field = find('input[data-fenetre-video-chat-target="chatInput"]', visible: :all)
+
     assert_not_nil input_field
 
     # Find the send button and verify it exists
     send_button = find('button[data-action*="fenetre--video-chat#sendChat"]', visible: :all)
+
     assert_not_nil send_button
 
     # Verify the chat messages container exists
@@ -96,6 +98,7 @@ class VideoChatSystemTest < ApplicationSystemTestCase
     # Open a new browser session for second user
     using_session(:user2) do
       visit '/video_chat?room_id=multiuser-test&user_id=5&username=User5'
+
       assert_selector '[data-controller="fenetre--video-chat"]'
 
       # Send a chat message from second user
