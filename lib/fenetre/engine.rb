@@ -104,6 +104,16 @@ module Fenetre
       end
     end
 
+    # Serve import_map_resolver.js directly for host apps
+    initializer 'fenetre.resolver_route', after: :load_config_initializers do |app|
+      app.routes.prepend do
+        get '/fenetre/import_map_resolver.js', to: proc { |_env|
+          path = Fenetre::Engine.root.join('app/assets/javascripts/fenetre/import_map_resolver.js')
+          [200, { 'Content-Type' => 'application/javascript' }, [File.read(path)]]
+        }
+      end
+    end
+
     # Register helpers
     initializer 'fenetre.helpers' do
       ActiveSupport.on_load(:action_controller_base) do
