@@ -36,48 +36,12 @@ module Fenetre
     initializer 'fenetre.importmap', before: 'importmap' do |app|
       # Check if the host app uses importmap-rails
       if app.config.respond_to?(:importmap)
-        # Create a mapping for "stimulus" that points to "@hotwired/stimulus" or the actual file
-        begin
-          # Check if @hotwired/stimulus is already mapped
-          stimulus_mapping = app.config.importmap.to_json(resolver: nil)['imports']&.dig('@hotwired/stimulus')
-
-          # Add the alias mapping for "stimulus" -> "@hotwired/stimulus"
-          unless app.config.importmap.to_json['imports']&.key?('stimulus')
-            if stimulus_mapping
-              # Create an alias to the existing mapping
-              app.config.importmap.pin 'stimulus', to: '@hotwired/stimulus', preload: true
-            elsif File.exist?(Rails.root.join('vendor/javascript/@hotwired/stimulus.js'))
-              # Try to find the file path
-              app.config.importmap.pin 'stimulus', to: '@hotwired/stimulus.js', preload: true
-            elsif defined?(Stimulus::Engine) && Stimulus::Engine.root
-              app.config.importmap.pin 'stimulus', to: 'stimulus.min.js', preload: true
-            else
-              # Last resort, point to a CDN
-              app.config.importmap.pin 'stimulus',
-                                       to: 'https://ga.jspm.io/npm:@hotwired/stimulus@3.2.2/dist/stimulus.js', preload: true
-            end
-          end
-        rescue StandardError => e
-          Rails.logger.warn "Fenetre: Error adding stimulus mapping: #{e.message}"
-        end
-
-        # Ensure "application" is mapped - typically pointing to app/javascript/application.js
-        begin
-          # Always add application mapping, for host apps to use
-          app.config.importmap.pin 'application', to: 'fenetre/application.js', preload: true unless app.config.importmap.to_json['imports']&.key?('application')
-        rescue StandardError => e
-          Rails.logger.warn "Fenetre: Error adding application mapping: #{e.message}"
-        end
-
         # Pin the engine's controllers directory with proper paths
         app.config.importmap.pin_all_from Fenetre::Engine.root.join('app/javascript/controllers'),
-                                          under: 'controllers/fenetre', to: 'fenetre/controllers'
+                                          under: 'controllers/fenetre'
 
         # Pin the engine's main JS entry point
         app.config.importmap.pin 'fenetre', to: 'fenetre.js', preload: true
-
-        # Pin import map resolver for host apps
-        app.config.importmap.pin 'fenetre/import_map_resolver', to: 'fenetre/import_map_resolver.js', preload: true
       else
         # Fallback or warning if importmap is not used by the host app
         Rails.logger.warn "Fenetre requires importmap-rails to automatically load JavaScript controllers. Please install importmap-rails or manually include Fenetre's JavaScript."
@@ -101,16 +65,6 @@ module Fenetre
             ActionCable.server.config.instance_variable_set(:@paths, action_cable_paths)
           end
         end
-      end
-    end
-
-    # Serve import_map_resolver.js directly for host apps (Propshaft, Sprockets, or none)
-    initializer 'fenetre.resolver_route', after: :load_config_initializers do |app|
-      app.routes.prepend do
-        get '/assets/fenetre/import_map_resolver.js', to: proc { |_env|
-          path = Fenetre::Engine.root.join('app/assets/javascripts/fenetre/import_map_resolver.js')
-          [200, { 'Content-Type' => 'application/javascript' }, [File.read(path)]]
-        }
       end
     end
 
@@ -170,7 +124,6 @@ module Fenetre
     initializer 'fenetre.assets_sprockets', after: 'fenetre.assets' do |app|
       if app.config.respond_to?(:assets)
         app.config.assets.paths << root.join('app/assets/javascripts')
-        app.config.assets.precompile += ['fenetre/import_map_resolver.js']
       end
     end
   end
