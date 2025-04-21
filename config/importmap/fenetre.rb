@@ -6,7 +6,6 @@
 # Pin the main fenetre module
 pin 'fenetre', to: 'fenetre.js'
 pin 'fenetre/application', to: 'fenetre/application.js'
-pin 'fenetre/import_map_resolver', to: 'fenetre/import_map_resolver.js', preload: true
 
 # Pin controllers
 pin_all_from 'fenetre/controllers', under: 'controllers/fenetre'
