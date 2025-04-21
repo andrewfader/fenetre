@@ -13,7 +13,7 @@
       <img src="./assets/0.13.1/loading.gif" alt="loading"/>
     </div>
     <div id="wrapper" class="hide">
-      <div class="timestamp">Generated <abbr class="timeago" title="2025-04-20T16:46:49-04:00">2025-04-20T16:46:49-04:00</abbr></div>
+      <div class="timestamp">Generated <abbr class="timeago" title="2025-04-21T03:39:18-04:00">2025-04-21T03:39:18-04:00</abbr></div>
       <ul class="group_tabs"></ul>
 
       <div id="content">
@@ -4549,7 +4549,7 @@
 
             
 
-            <code class="ruby">          # Look for the application.js file in standard locations</code>
+            <code class="ruby">          # Always add application mapping, for host apps to use</code>
           </li>
         </div>
       
@@ -4561,7 +4561,7 @@
 
             
 
-            <code class="ruby">          app.config.importmap.pin &#39;application&#39;, to: &#39;application.js&#39;, preload: true if !app.config.importmap.to_json[&#39;imports&#39;]&amp;.key?(&#39;application&#39;) &amp;&amp; File.exist?(Rails.root.join(&#39;app/javascript/application.js&#39;))</code>
+            <code class="ruby">          app.config.importmap.pin &#39;application&#39;, to: &#39;fenetre/application.js&#39;, preload: true unless app.config.importmap.to_json[&#39;imports&#39;]&amp;.key?(&#39;application&#39;)</code>
           </li>
         </div>
       

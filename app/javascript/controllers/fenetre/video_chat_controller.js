@@ -33,7 +33,6 @@ export default class extends StimulusController {
     this.peerConnections = {};
     this.localStream = null;
     this.screenStream = null;
-    this.isScreenSharing = false;
 
     // Ensure essential targets provided by the helper exist
     if (!this.hasConnectionStatusTarget) {
@@ -694,4 +693,5 @@ export default class extends StimulusController {
 
     videoElement.srcObject = stream;
   }
+}
 }

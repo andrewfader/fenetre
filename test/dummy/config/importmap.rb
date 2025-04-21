@@ -10,7 +10,7 @@ pin '@hotwired/stimulus-loading', to: 'stimulus-loading.js', preload: true
 
 # Host application's entry point
 pin 'dummy_app', to: 'application.js', preload: true
-pin 'application', to: 'application.js', preload: true
+# pin 'application', to: 'application.js', preload: true # Commented out to simulate missing pin
 
 # Pin Fenetre engine assets
 pin 'fenetre', to: 'fenetre.js', preload: true

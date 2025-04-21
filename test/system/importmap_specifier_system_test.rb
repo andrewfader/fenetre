@@ -28,9 +28,9 @@ class ImportmapSpecifierSystemTest < ApplicationSystemTestCase
     # Check that the controller updated the connection status element
     # Use assert_text within the controller scope
     within('[data-controller="fenetre--video-chat"]', wait: 10) do
-      assert_text("Connecting...", wait: 10) # Check for the initial text
+      assert_text('Connecting...', wait: 10) # Check for the initial text
     end
-    
+
     # Optional: If you need to verify it changes later, you could add more steps
     # For now, just verifying the initial state is enough for this test's purpose.
   end

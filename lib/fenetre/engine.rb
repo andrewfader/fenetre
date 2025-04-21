@@ -63,8 +63,8 @@ module Fenetre
 
         # Ensure "application" is mapped - typically pointing to app/javascript/application.js
         begin
-          # Look for the application.js file in standard locations
-          app.config.importmap.pin 'application', to: 'application.js', preload: true if !app.config.importmap.to_json['imports']&.key?('application') && File.exist?(Rails.root.join('app/javascript/application.js'))
+          # Always add application mapping, for host apps to use
+          app.config.importmap.pin 'application', to: 'fenetre/application.js', preload: true unless app.config.importmap.to_json['imports']&.key?('application')
         rescue StandardError => e
           Rails.logger.warn "Fenetre: Error adding application mapping: #{e.message}"
         end

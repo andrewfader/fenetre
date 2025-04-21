@@ -1,54 +1,61 @@
-// Fenetre main entry point
-// Handle importing and registering the video chat controller
+// Fenetre main entry point - Fallback approach for reliable operation
+// This version avoids import statements entirely for maximum compatibility
 
-// First check if we have a global Stimulus instance
-if (window.Stimulus) {
-  loadControllerWithGlobalStimulus();
+// Dynamically load the import map resolver first
+// This must be at the top to ensure it resolves bare specifiers before other modules load
+document.addEventListener('DOMContentLoaded', function() {
+  const script = document.createElement('script');
+  script.src = '/fenetre/import_map_resolver.js';
+  script.async = false;
+  document.head.appendChild(script);
+});
+
+// Function to register the controller with Stimulus
+function registerFenetreController() {
+  // Check if the controller is already available globally
+  // (This would happen if it was loaded separately via importmap)
+  const controller = window.Fenetre?.Controllers?.VideoChatController;
+  
+  // Try multiple approaches to find Stimulus
+  const stimulus = window.Stimulus || 
+                   (window.stimulus && window.stimulus.application) || 
+                   (window.Rails && window.Rails.stimulus);
+  
+  // If Stimulus is available, register our controller
+  if (stimulus) {
+    try {
+      if (!controller) {
+        console.warn("Fenetre: Controller not found via importmap. Recommend adding 'pin \"controllers/fenetre/video_chat_controller\"' to your importmap.");
+        return; // Exit if controller not found
+      }
+      
+      // Modern Rails 7+ approach
+      if (stimulus.register) {
+        stimulus.register("fenetre--video-chat", controller);
+      } 
+      // Fall back to application.register approach
+      else if (stimulus.application && stimulus.application.register) {
+        stimulus.application.register("fenetre--video-chat", controller);
+      }
+      // Legacy approach
+      else if (stimulus.Application) {
+        const application = stimulus.Application.start();
+        application.register("fenetre--video-chat", controller);
+      }
+      console.log("Fenetre: Video chat controller registered successfully.");
+    } catch (e) {
+      console.error("Fenetre: Error registering controller:", e);
+    }
+  } else {
+    console.error(
+      "Fenetre: Stimulus not found. Ensure Stimulus is loaded in your application.js before fenetre.js."
+    );
+  }
+}
+
+// Register when DOM is ready
+if (document.readyState === "loading") { 
+  document.addEventListener("DOMContentLoaded", registerFenetreController);
 } else {
-  // Otherwise try to import Stimulus and initialize it
-  importStimulusAndLoadController();
-}
-
-// Function to load the controller when Stimulus is already available
-function loadControllerWithGlobalStimulus() {
-  // Try multiple paths to import the controller
-  Promise.any([
-    import('./controllers/fenetre/video_chat_controller'),
-    import('controllers/fenetre/video_chat_controller'),
-    import('fenetre/controllers/video_chat_controller')
-  ])
-  .then(module => {
-    window.Stimulus.register('fenetre--video-chat', module.default);
-    console.log('Fenetre: Video chat controller registered with global Stimulus');
-  })
-  .catch(error => {
-    console.error('Fenetre: Failed to load video chat controller:', error);
-  });
-}
-
-// Function to import Stimulus if it's not globally available
-function importStimulusAndLoadController() {
-  // Try to import Stimulus with various module specifiers
-  Promise.any([
-    import('stimulus'),
-    import('@hotwired/stimulus')
-  ])
-  .then(module => {
-    const { Application } = module;
-    window.Stimulus = Application.start();
-    
-    // Now load the controller
-    return Promise.any([
-      import('./controllers/fenetre/video_chat_controller'),
-      import('controllers/fenetre/video_chat_controller'),
-      import('fenetre/controllers/video_chat_controller')
-    ]);
-  })
-  .then(module => {
-    window.Stimulus.register('fenetre--video-chat', module.default);
-    console.log('Fenetre: Video chat controller registered successfully');
-  })
-  .catch(error => {
-    console.error('Fenetre: Failed to initialize Stimulus or load controller:', error);
-  });
+  registerFenetreController();
 }
