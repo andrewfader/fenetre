@@ -5,7 +5,17 @@
 // This must be at the top to ensure it resolves bare specifiers before other modules load
 document.addEventListener('DOMContentLoaded', function() {
   const script = document.createElement('script');
-  script.src = '/fenetre/import_map_resolver.js';
+  // Determine base path from current fenetre.js script
+  const currentSrc = (document.currentScript && document.currentScript.src) ||
+                     document.querySelector('script[src*="fenetre"]')?.src;
+  if (currentSrc) {
+    // Replace fenetre(-hash).js with fenetre/import_map_resolver.js
+    const resolverPath = currentSrc.replace(/\/fenetre(-.*)?\.js$/, '/fenetre/import_map_resolver.js');
+    script.src = resolverPath;
+  } else {
+    // Fallback to assets location
+    script.src = '/assets/fenetre/import_map_resolver.js';
+  }
   script.async = false;
   document.head.appendChild(script);
 });

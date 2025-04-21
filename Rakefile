@@ -67,7 +67,6 @@ begin
       system(command) or exit(1)
     end
   end
-
 rescue LoadError
   puts "parallel_tests gem not found. Run 'bundle install' first."
 end

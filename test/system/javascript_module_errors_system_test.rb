@@ -110,7 +110,6 @@ module Fenetre
     end
 
     test 'specific bare specifiers for application and @hotwired/stimulus are properly mapped' do
-      errors = []
       # Set up specialized JavaScript tracking for specific bare specifiers
       page.execute_script(<<~JS)
         window.specificBareSpecifierErrors = [];
@@ -182,33 +181,33 @@ module Fenetre
              "Import map missing '@hotwired/stimulus' mapping. Current mappings: #{imports.keys.join(', ')}"
 
       # For 'application', either check for direct mapping OR verify that no error occurs when importing
-      application_handled = imports.key?('application') || 
-                           page.evaluate_script(<<~JS) === true
-        (function() {
-          try {
-            // Check if 'application' can be imported without errors,
-            // either through direct mapping or our dynamic resolver
-            const script = document.createElement('script');
-            script.type = 'module';
-            script.textContent = 'import "application"; window.applicationImportSucceeded = true;';
-            document.head.appendChild(script);
-            
-            // Wait briefly and check if import succeeded
-            setTimeout(() => {
-              if (!window.applicationImportSucceeded) {
-                console.error('Failed to import "application" module');
-              }
-            }, 100);
-            
-            // If we don't have a direct error when creating the script, 
-            // consider it potentially successful
-            return true;
-          } catch (e) {
-            console.error('Error testing application import:', e);
-            return false;
-          }
-        })()
-      JS
+      application_handled = imports.key?('application') ||
+                            page.evaluate_script(<<~JS) === true
+                              (function() {
+                                try {
+                                  // Check if 'application' can be imported without errors,
+                                  // either through direct mapping or our dynamic resolver
+                                  const script = document.createElement('script');
+                                  script.type = 'module';
+                                  script.textContent = 'import "application"; window.applicationImportSucceeded = true;';
+                                  document.head.appendChild(script);
+                              #{'    '}
+                                  // Wait briefly and check if import succeeded
+                                  setTimeout(() => {
+                                    if (!window.applicationImportSucceeded) {
+                                      console.error('Failed to import "application" module');
+                                    }
+                                  }, 100);
+                              #{'    '}
+                                  // If we don't have a direct error when creating the script,#{' '}
+                                  // consider it potentially successful
+                                  return true;
+                                } catch (e) {
+                                  console.error('Error testing application import:', e);
+                                  return false;
+                                }
+                              })()
+                            JS
 
       assert application_handled,
              "Import map missing 'application' mapping and no client-side fallback is working. Current mappings: #{imports.keys.join(', ')}"

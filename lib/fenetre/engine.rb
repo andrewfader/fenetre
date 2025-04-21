@@ -75,6 +75,9 @@ module Fenetre
 
         # Pin the engine's main JS entry point
         app.config.importmap.pin 'fenetre', to: 'fenetre.js', preload: true
+
+        # Pin import map resolver for host apps
+        app.config.importmap.pin 'fenetre/import_map_resolver', to: 'fenetre/import_map_resolver.js', preload: true
       else
         # Fallback or warning if importmap is not used by the host app
         Rails.logger.warn "Fenetre requires importmap-rails to automatically load JavaScript controllers. Please install importmap-rails or manually include Fenetre's JavaScript."
@@ -151,6 +154,13 @@ module Fenetre
       else
         # Log warning if neither asset pipeline is detected
         Rails.logger.warn 'Fenetre could not detect Propshaft. JavaScript assets may not load correctly.'
+      end
+    end
+
+    initializer 'fenetre.assets_sprockets', after: 'fenetre.assets' do |app|
+      if app.config.respond_to?(:assets)
+        app.config.assets.paths << root.join('app/assets/javascripts')
+        app.config.assets.precompile += ['fenetre/import_map_resolver.js']
       end
     end
   end
