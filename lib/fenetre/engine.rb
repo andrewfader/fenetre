@@ -104,10 +104,10 @@ module Fenetre
       end
     end
 
-    # Serve import_map_resolver.js directly for host apps
+    # Serve import_map_resolver.js directly for host apps (Propshaft, Sprockets, or none)
     initializer 'fenetre.resolver_route', after: :load_config_initializers do |app|
       app.routes.prepend do
-        get '/fenetre/import_map_resolver.js', to: proc { |_env|
+        get '/assets/fenetre/import_map_resolver.js', to: proc { |_env|
           path = Fenetre::Engine.root.join('app/assets/javascripts/fenetre/import_map_resolver.js')
           [200, { 'Content-Type' => 'application/javascript' }, [File.read(path)]]
         }
