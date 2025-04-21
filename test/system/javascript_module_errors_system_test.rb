@@ -182,7 +182,7 @@ module Fenetre
 
       # For 'application', either check for direct mapping OR verify that no error occurs when importing
       application_handled = imports.key?('application') ||
-                            page.evaluate_script(<<~JS) === true
+                            page.evaluate_script(<<~JS)
                               (function() {
                                 try {
                                   // Check if 'application' can be imported without errors,
@@ -191,15 +191,13 @@ module Fenetre
                                   script.type = 'module';
                                   script.textContent = 'import "application"; window.applicationImportSucceeded = true;';
                                   document.head.appendChild(script);
-                              #{'    '}
                                   // Wait briefly and check if import succeeded
                                   setTimeout(() => {
                                     if (!window.applicationImportSucceeded) {
                                       console.error('Failed to import "application" module');
                                     }
                                   }, 100);
-                              #{'    '}
-                                  // If we don't have a direct error when creating the script,#{' '}
+                                  // If we don't have a direct error when creating the script,
                                   // consider it potentially successful
                                   return true;
                                 } catch (e) {
@@ -208,6 +206,7 @@ module Fenetre
                                 }
                               })()
                             JS
+      application_handled = !!application_handled
 
       assert application_handled,
              "Import map missing 'application' mapping and no client-side fallback is working. Current mappings: #{imports.keys.join(', ')}"

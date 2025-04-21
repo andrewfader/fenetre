@@ -51,6 +51,9 @@ Style/GlobalVars:
 Style/FrozenStringLiteralComment:
   Enforce: true
 
+Style/OpenStructUse:
+  Enabled: false
+
 # Configure Minitest specific cops
 Minitest/MultipleAssertions:
   Enabled: false

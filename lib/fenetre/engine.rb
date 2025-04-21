@@ -19,6 +19,10 @@ module Fenetre
   class Engine < ::Rails::Engine
     isolate_namespace Fenetre
 
+    def self.log_warning(msg)
+      Rails.logger.warn(msg)
+    end
+
     # Mount Action Cable server automatically
     initializer 'fenetre.mount_cable', after: :load_config_initializers do |app|
       # Check if Action Cable route is already mounted
@@ -43,8 +47,7 @@ module Fenetre
         # Pin the engine's main JS entry point
         app.config.importmap.pin 'fenetre', to: 'fenetre.js', preload: true
       else
-        # Fallback or warning if importmap is not used by the host app
-        Rails.logger.warn "Fenetre requires importmap-rails to automatically load JavaScript controllers. Please install importmap-rails or manually include Fenetre's JavaScript."
+        Fenetre::Engine.log_warning "Fenetre requires importmap-rails to automatically load JavaScript controllers. Please install importmap-rails or manually include Fenetre's JavaScript."
       end
     end
 
@@ -116,15 +119,12 @@ module Fenetre
           app.config.propshaft.content_types['.js'] = 'application/javascript'
         end
       else
-        # Log warning if neither asset pipeline is detected
-        Rails.logger.warn 'Fenetre could not detect Propshaft. JavaScript assets may not load correctly.'
+        Fenetre::Engine.log_warning 'Fenetre could not detect Propshaft. JavaScript assets may not load correctly.'
       end
     end
 
     initializer 'fenetre.assets_sprockets', after: 'fenetre.assets' do |app|
-      if app.config.respond_to?(:assets)
-        app.config.assets.paths << root.join('app/assets/javascripts')
-      end
+      app.config.assets.paths << root.join('app/assets/javascripts') if app.config.respond_to?(:assets)
     end
   end
 end
