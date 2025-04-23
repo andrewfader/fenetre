@@ -25,4 +25,11 @@ Rails.application.routes.draw do
   get '/javascript_tests', to: proc { |_env|
     [200, { 'Content-Type' => 'text/html' }, [File.read(Rails.root.join('public', 'test_runner.html'))]]
   }, constraints: -> { Rails.env.test? || Rails.env.development? }
+
+  # Mount ActionCable for integration/system tests
+  mount ActionCable.server => '/cable'
+
+  # Health check endpoints for integration tests
+  get '/automatic/status', to: 'health#status'
+  get '/automatic/human_status', to: 'health#human_status'
 end
