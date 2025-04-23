@@ -1,7 +1,7 @@
 # Fenetre
 
 [![CI Status](https://github.com/andrewfader/fenetre/workflows/CI/badge.svg)](https://github.com/andrewfader/fenetre/actions)
-[![Coverage Status](https://img.shields.io/badge/coverage-78.9%25-yellow.svg)](coverage/index.html)
+[![Coverage Status](https://img.shields.io/badge/coverage-90.2%25-yellow.svg)](coverage/index.html)
 
 A Rails engine that adds WebRTC video chat to your app using ActionCable, Stimulus, and Turbo.
 
