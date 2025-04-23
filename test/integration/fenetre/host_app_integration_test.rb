@@ -25,8 +25,8 @@ class IntegrationHostAppTest < ActionDispatch::IntegrationTest
 
       # Verify the HTML structure contains expected elements using Nokogiri
       doc = Nokogiri::HTML(response.body)
-      assert doc.at_css('div[data-controller="fenetre--video-chat"]'), "Expected video chat container"
-      assert doc.at_css('input[data-fenetre-video-chat-target="roomId"][value="test_room_123"]'), "Expected roomId input"
+      assert doc.at_css('div[data-controller="fenetre--video-chat"]'), 'Expected video chat container'
+      assert doc.at_css('input[data-fenetre-video-chat-target="roomId"][value="test_room_123"]'), 'Expected roomId input'
     end
 
     # Clean up
