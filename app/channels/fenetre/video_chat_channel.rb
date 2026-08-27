@@ -32,9 +32,10 @@ module Fenetre
       init_participants(@room_id)
       type = data['type'] || data[:type]
       payload = data['payload'] || data[:payload]
+      to = data['to'] || data[:to]
       return if type == 'screen_share' && !params[:enable_screen_sharing]
 
-      broadcast_signal(@room_id, type, current_user.id, payload)
+      broadcast_signal(@room_id, type, current_user.id, payload, to)
     end
 
     def join_room(_data)
@@ -87,11 +88,19 @@ module Fenetre
       return if (data['to'] || data[:to]) && !params[:enable_private_chat]
 
       message = data['message'] || data[:message]
+      message = message.to_s.strip
+      return if message.empty?
+      # Cap length — Zoom-class chat is not an unbounded paste dump.
+      message = message.byteslice(0, 2000)
+
       to = data['to'] || data[:to]
       ActionCable.server.broadcast(room_stream(@room_id),
                                    { 'type' => 'chat', 'from' => current_user.id,
                                      'payload' => { 'message' => message, 'to' => to } })
     end
+
+    # Client historically called send_message; keep both names working.
+    alias send_message chat
 
     def perform(action, data = {})
       raise NoMethodError, "undefined action '#{action}' for #{self.class}" unless respond_to?(action)
@@ -144,8 +153,10 @@ module Fenetre
                                      'participants' => participants(room_id).dup })
     end
 
-    def broadcast_signal(room_id, type, from, payload)
-      ActionCable.server.broadcast(room_stream(room_id), { 'type' => type, 'from' => from, 'payload' => payload })
+    def broadcast_signal(room_id, type, from, payload, to = nil)
+      message = { 'type' => type, 'from' => from, 'payload' => payload }
+      message['to'] = to if to
+      ActionCable.server.broadcast(room_stream(room_id), message)
     end
 
     def log_analytics(event, user_id, room_id)

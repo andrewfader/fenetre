@@ -353,6 +353,39 @@ module Fenetre
       assert_broadcast_on("fenetre_video_chat_#{room_id}", expected_leave)
     end
 
+    test '#signal includes optional to for directed WebRTC messages' do
+      room_id = 'directed_signal_room'
+      user_id = 77
+      subscribe_with_connection({ room_id: room_id }, user: User.new(user_id))
+      subscription.instance_variable_set(:@room_id, room_id)
+
+      expected = {
+        'type' => 'offer',
+        'from' => user_id,
+        'to' => 'peer-42',
+        'payload' => { 'type' => 'offer', 'sdp' => 'v=0' }
+      }
+      subscription.perform(:signal, { type: 'offer', to: 'peer-42', payload: expected['payload'] })
+
+      assert_broadcast_on("fenetre_video_chat_#{room_id}", expected)
+    end
+
+    test '#send_message aliases chat' do
+      room_id = 'alias_chat_room'
+      user_id = 88
+      subscribe_with_connection({ room_id: room_id }, user: User.new(user_id))
+      subscription.instance_variable_set(:@room_id, room_id)
+
+      expected = {
+        'type' => 'chat',
+        'from' => user_id,
+        'payload' => { 'message' => 'hello alias', 'to' => nil }
+      }
+      subscription.perform(:send_message, { message: 'hello alias' })
+
+      assert_broadcast_on("fenetre_video_chat_#{room_id}", expected)
+    end
+
     test 'chat messages are broadcast to the room' do
       room_id = 'chat_room'
       user_id = 104

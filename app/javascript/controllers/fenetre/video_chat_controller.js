@@ -1,697 +1,732 @@
-// Import Stimulus Controller with fallbacks
-let StimulusController;
-
-// Use a simple try-catch pattern for imports
-try {
-  // First try "stimulus" which should be mapped in most apps
-  StimulusController = require('stimulus').Controller;
-} catch (e) {
-  try {
-    // Fallback to the full package name
-    StimulusController = require('@hotwired/stimulus').Controller;
-  } catch (e2) {
-    // Define a minimal placeholder if all else fails
-    console.warn('Fenetre: Could not load Stimulus Controller. Using fallback implementation.');
-    StimulusController = class {
-      static targets = [];
-      static values = {};
-      initialize() {}
-      connect() {
-        console.warn('Using fallback Stimulus controller. Some features may not work correctly.');
-      }
-    };
-  }
-}
+import { Controller } from "@hotwired/stimulus"
 
 // Connects to data-controller="fenetre--video-chat"
-export default class extends StimulusController {
-  static targets = [ "localVideo", "remoteVideos", "roomId", "chatInput", "chatMessages", "connectionStatus" ]
-  static values = { userId: String }
+// Quality bar: Zoom / Skype / Jitsi — HD capture, AEC/NS, TURN-ready ICE,
+// targeted signaling, perfect negotiation, ICE restart, bitrate caps.
+export default class extends Controller {
+  static targets = [
+    "localVideo",
+    "remoteVideos",
+    "roomId",
+    "chatInput",
+    "chatMessages",
+    "connectionStatus",
+  ]
+  static values = {
+    userId: String,
+    iceServers: { type: Array, default: [{ urls: "stun:stun.l.google.com:19302" }] },
+    maxVideoBitrate: { type: Number, default: 2_500_000 },
+    maxAudioBitrate: { type: Number, default: 128_000 },
+    videoWidth: { type: Number, default: 1280 },
+    videoHeight: { type: Number, default: 720 },
+    frameRate: { type: Number, default: 30 },
+  }
 
   connect() {
-    console.log("VideoChat controller connected");
-    this.peerConnections = {};
-    this.localStream = null;
-    this.screenStream = null;
+    this.peerConnections = {}
+    this.makingOffer = {}
+    this.ignoreOffer = {}
+    this.iceCandidateQueue = {}
+    this.iceRestartTimers = {}
+    this.localStream = null
+    this.screenStream = null
+    this.isScreenSharing = false
+    this.savedVideoTrack = null
+    this._cableConnected = this.handleActionCableConnected.bind(this)
+    this._cableDisconnected = this.handleActionCableDisconnected.bind(this)
+    this._screenShareChanged = this.handleScreenSharingChange.bind(this)
 
-    // Ensure essential targets provided by the helper exist
-    if (!this.hasConnectionStatusTarget) {
-      console.error("Fenetre: connectionStatusTarget is missing! Check the view helper.");
-      return; 
-    }
-    if (!this.hasRoomIdTarget) {
-      console.error("Fenetre: roomIdTarget is missing! Check the view helper.");
-      return; 
+    if (!this.hasConnectionStatusTarget || !this.hasRoomIdTarget) {
+      console.error("Fenetre: required targets missing (connectionStatus / roomId).")
+      return
     }
 
-    this.roomId = this.roomIdTarget.value;
+    this.roomId = this.roomIdTarget.value
     if (!this.roomId) {
-      console.error("Fenetre: Room ID value is missing!");
-      return;
+      console.error("Fenetre: Room ID value is missing!")
+      return
     }
 
-    this.updateConnectionStatus('connecting');
-    
-    // Listen for ActionCable connection events
-    this.setupConnectionEventListeners();
-    
+    // Perfect negotiation: the peer with the lexicographically greater id is polite.
+    this.isPolite = (peerId) => String(this.userIdValue) > String(peerId)
+
+    this.updateConnectionStatus("connecting")
+    this.setupConnectionEventListeners()
+
     this.startLocalVideo()
       .then(() => this.createSubscription())
-      .catch(error => this.handleMediaError(error));
+      .catch((error) => this.handleMediaError(error))
   }
 
-  // Set up listeners for ActionCable connection events
   setupConnectionEventListeners() {
-    // Listen for ActionCable connected event
-    document.addEventListener('cable-ready:connected', this.handleActionCableConnected.bind(this));
-    
-    // Listen for ActionCable disconnected event
-    document.addEventListener('cable-ready:disconnected', this.handleActionCableDisconnected.bind(this));
-    
-    // Listen for screen sharing status changes (for testing)
-    document.addEventListener('screen-sharing-changed', this.handleScreenSharingChange.bind(this));
+    document.addEventListener("cable-ready:connected", this._cableConnected)
+    document.addEventListener("cable-ready:disconnected", this._cableDisconnected)
+    document.addEventListener("screen-sharing-changed", this._screenShareChanged)
   }
-  
-  // Handle ActionCable connected event
-  handleActionCableConnected(event) {
-    console.log('ActionCable connected:', event);
-    this.updateConnectionStatus('connected');
+
+  handleActionCableConnected() {
+    this.updateConnectionStatus("connected")
   }
-  
-  // Handle ActionCable disconnected event
-  handleActionCableDisconnected(event) {
-    console.log('ActionCable disconnected:', event);
-    this.updateConnectionStatus('disconnected');
+
+  handleActionCableDisconnected() {
+    this.updateConnectionStatus("disconnected")
   }
-  
-  // Handle screen sharing status change (for testing)
+
   handleScreenSharingChange(event) {
-    console.log('Screen sharing status changed:', event.detail.status);
-    if (event.detail.status === 'started') {
-      const button = this.element.querySelector('button[data-action*="fenetre--video-chat#toggleScreenShare"]');
-      if (button) {
-        button.classList.add('screen-sharing');
-        button.textContent = 'Stop Sharing';
-      }
-    } else if (event.detail.status === 'stopped') {
-      const button = this.element.querySelector('button[data-action*="fenetre--video-chat#toggleScreenShare"]');
-      if (button) {
-        button.classList.remove('screen-sharing');
-        button.textContent = 'Share Screen';
-      }
+    const button = this.element.querySelector(
+      'button[data-action*="fenetre--video-chat#toggleScreenShare"]'
+    )
+    if (!button) return
+    if (event.detail?.status === "started") {
+      button.classList.add("screen-sharing")
+      button.textContent = "Stop Sharing"
+    } else if (event.detail?.status === "stopped") {
+      button.classList.remove("screen-sharing")
+      button.textContent = "Share Screen"
     }
   }
-  
+
   disconnect() {
-    console.log("VideoChat controller disconnected");
-    
-    // Remove event listeners
-    document.removeEventListener('cable-ready:connected', this.handleActionCableConnected);
-    document.removeEventListener('cable-ready:disconnected', this.handleActionCableDisconnected);
-    document.removeEventListener('screen-sharing-changed', this.handleScreenSharingChange);
-    
+    document.removeEventListener("cable-ready:connected", this._cableConnected)
+    document.removeEventListener("cable-ready:disconnected", this._cableDisconnected)
+    document.removeEventListener("screen-sharing-changed", this._screenShareChanged)
+
+    Object.keys(this.iceRestartTimers || {}).forEach((id) => {
+      clearTimeout(this.iceRestartTimers[id])
+    })
+    this.iceRestartTimers = {}
+
     if (this.subscription) {
-      this.subscription.unsubscribe();
+      this.subscription.unsubscribe()
+      this.subscription = null
     }
     if (this.localStream) {
-      this.localStream.getTracks().forEach(track => track.stop());
+      this.localStream.getTracks().forEach((t) => t.stop())
+      this.localStream = null
     }
     if (this.screenStream) {
-      this.screenStream.getTracks().forEach(track => track.stop());
+      this.screenStream.getTracks().forEach((t) => t.stop())
+      this.screenStream = null
     }
-    Object.values(this.peerConnections).forEach(pc => pc.close());
-    this.peerConnections = {};
-    this.remoteVideosTarget.innerHTML = ''; // Clear remote videos
-    this.updateConnectionStatus('disconnected');
+    Object.values(this.peerConnections).forEach((pc) => pc.close())
+    this.peerConnections = {}
+    if (this.hasRemoteVideosTarget) {
+      this.remoteVideosTarget.innerHTML = ""
+    }
+    this.updateConnectionStatus("disconnected")
   }
 
-  updateConnectionStatus(status) { // Removed optional element argument
-    // Rely on Stimulus finding the target
-    if (this.hasConnectionStatusTarget) { 
-      const statusElement = this.connectionStatusTarget;
-      // Clear previous status classes
-      statusElement.classList.remove('fenetre-status-connecting', 'fenetre-status-connected', 
-                                    'fenetre-status-disconnected', 'fenetre-status-reconnecting',
-                                    'fenetre-status-error');
-      
-      // Add appropriate class and text based on status
-      switch(status) {
-        case 'connecting':
-          statusElement.classList.add('fenetre-status-connecting');
-          statusElement.textContent = 'Connecting...';
-          break;
-        case 'connected':
-          statusElement.classList.add('fenetre-status-connected');
-          statusElement.textContent = 'Connected';
-          break;
-        case 'disconnected':
-          statusElement.classList.add('fenetre-status-disconnected');
-          statusElement.textContent = 'Disconnected';
-          break;
-        case 'reconnecting':
-          statusElement.classList.add('fenetre-status-reconnecting');
-          statusElement.textContent = 'Reconnecting...';
-          break;
-        case 'error':
-          statusElement.classList.add('fenetre-status-error');
-          statusElement.textContent = 'Connection Error';
-          break;
-      }
-    } else {
-       console.warn("Fenetre: connectionStatusTarget could not be found.");
+  updateConnectionStatus(status) {
+    if (!this.hasConnectionStatusTarget) return
+    const el = this.connectionStatusTarget
+    el.classList.remove(
+      "fenetre-status-connecting",
+      "fenetre-status-connected",
+      "fenetre-status-disconnected",
+      "fenetre-status-reconnecting",
+      "fenetre-status-error"
+    )
+    const labels = {
+      connecting: ["fenetre-status-connecting", "Connecting..."],
+      connected: ["fenetre-status-connected", "Connected"],
+      disconnected: ["fenetre-status-disconnected", "Disconnected"],
+      reconnecting: ["fenetre-status-reconnecting", "Reconnecting..."],
+      error: ["fenetre-status-error", "Connection Error"],
+    }
+    const [cls, text] = labels[status] || labels.error
+    el.classList.add(cls)
+    el.textContent = text
+  }
+
+  mediaConstraints() {
+    return {
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: 1,
+      },
+      video: {
+        width: { ideal: this.videoWidthValue, max: 1920 },
+        height: { ideal: this.videoHeightValue, max: 1080 },
+        frameRate: { ideal: this.frameRateValue, max: 60 },
+        facingMode: "user",
+      },
     }
   }
 
   async startLocalVideo() {
-    try {
-      this.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      this.localVideoTarget.srcObject = this.localStream;
-      console.log("Local video stream started");
-    } catch (error) {
-      console.error("Error accessing media devices.", error);
-      // Handle error appropriately (e.g., show a message to the user)
-      throw error; // Re-throw to prevent subscription if failed
+    this.localStream = await navigator.mediaDevices.getUserMedia(this.mediaConstraints())
+    if (this.hasLocalVideoTarget) {
+      this.localVideoTarget.srcObject = this.localStream
+      this.localVideoTarget.muted = true
+      this.localVideoTarget.playsInline = true
+      try {
+        await this.localVideoTarget.play()
+      } catch (_) {
+        /* autoplay policies may block; muted should allow it */
+      }
     }
   }
 
   handleMediaError(error) {
-    console.error("Media access error:", error);
-    // Show user-friendly error message
-    const errorMessage = document.createElement('div');
-    errorMessage.className = 'fenetre-media-error';
-    errorMessage.textContent = "Could not access camera or microphone. Please check your device permissions.";
-    errorMessage.style.color = 'red';
-    errorMessage.style.padding = '10px';
-    errorMessage.style.margin = '10px 0';
-    errorMessage.style.backgroundColor = '#ffeeee';
-    errorMessage.style.border = '1px solid red';
-    this.element.insertBefore(errorMessage, this.element.firstChild);
+    console.error("Media access error:", error)
+    this.updateConnectionStatus("error")
+    const errorMessage = document.createElement("div")
+    errorMessage.className = "fenetre-media-error"
+    errorMessage.setAttribute("role", "alert")
+    errorMessage.textContent =
+      "Could not access camera or microphone. Check permissions and that no other app is using them."
+    this.element.insertBefore(errorMessage, this.element.firstChild)
   }
 
   createSubscription() {
-    if (!window.ActionCable) {
-      console.error("ActionCable not available. Make sure it's properly loaded in your application.");
-      this.updateConnectionStatus('error');
-      return;
+    if (!window.App?.cable && !window.ActionCable) {
+      console.error("ActionCable not available.")
+      this.updateConnectionStatus("error")
+      return
     }
 
-    this.subscription = window.ActionCable.createConsumer().subscriptions.create(
+    const consumer =
+      window.App?.cable ||
+      this._consumer ||
+      (this._consumer = window.ActionCable.createConsumer())
+
+    this.subscription = consumer.subscriptions.create(
       { channel: "Fenetre::VideoChatChannel", room_id: this.roomId },
       {
         connected: () => {
-          console.log(`Connected to ActionCable channel: Fenetre::VideoChatChannel (Room: ${this.roomId})`);
-          this.updateConnectionStatus('connected');
-          this.announceJoin();
+          this.updateConnectionStatus("connected")
+          this.announceJoin()
         },
         disconnected: () => {
-          console.log("Disconnected from ActionCable channel");
-          this.updateConnectionStatus('disconnected');
+          this.updateConnectionStatus("reconnecting")
         },
-        received: (data) => {
-          console.log("Received data:", data);
-          this.handleSignalingData(data);
+        rejected: () => {
+          this.updateConnectionStatus("error")
         },
+        received: (data) => this.handleSignalingData(data),
       }
-    );
+    )
   }
 
   announceJoin() {
-    console.log("Announcing join");
-    this.subscription.perform("join_room", {});
+    this.subscription?.perform("join_room", {})
   }
 
-  // --- WebRTC Signaling Logic ---
-
   handleSignalingData(data) {
-    // Turbo Stream UI update support
+    if (!data || typeof data !== "object") return
+
     if (data.turbo_stream) {
-      this.applyTurboStream(data.turbo_stream);
+      this.applyTurboStream(data.turbo_stream)
     }
 
-    // Event hooks (can be customized via subclassing or data attributes)
-    if (data.type === "join") {
-      this.onJoin?.(data);
-    } else if (data.type === "leave") {
-      this.onLeave?.(data);
-    } else if (data.type === "chat") {
-      this.onChat?.(data);
-    } else if (data.type === "mute" || data.type === "unmute") {
-      this.onModeration?.(data);
-    } else if (data.type === "raise_hand" || data.type === "lower_hand") {
-      this.onHandRaise?.(data);
-    }
+    if (data.type === "join") this.onJoin?.(data)
+    else if (data.type === "leave") this.onLeave?.(data)
+    else if (data.type === "chat") this.onChat?.(data)
+    else if (data.type === "mute" || data.type === "unmute") this.onModeration?.(data)
+    else if (data.type === "raise_hand" || data.type === "lower_hand") this.onHandRaise?.(data)
 
-    // Ignore messages from self
-    if (data.from === this.userIdValue) {
-      console.log("Ignoring message from self");
-      return;
-    }
+    const from = data.from != null ? String(data.from) : null
+    const to = data.to != null ? String(data.to) : null
+    const selfId = String(this.userIdValue)
+
+    if (from === selfId) return
+    // Targeted signals: ignore if addressed to someone else
+    if (to && to !== selfId) return
 
     switch (data.type) {
       case "join":
-        console.log(`User ${data.from} joined, sending offer...`);
-        this.createPeerConnection(data.from, true); // Create PC and initiate offer
-        break;
+        // Existing peers offer to the joiner (mesh).
+        this.createPeerConnection(from, true)
+        break
       case "offer":
-        console.log(`Received offer from ${data.from}`);
-        this.createPeerConnection(data.from, false); // Create PC
-        this.peerConnections[data.from].setRemoteDescription(new RTCSessionDescription(data.payload))
-          .then(() => this.peerConnections[data.from].createAnswer())
-          .then(answer => this.peerConnections[data.from].setLocalDescription(answer))
-          .then(() => {
-            console.log(`Sending answer to ${data.from}`);
-            this.sendSignal(data.from, "answer", this.peerConnections[data.from].localDescription);
-          })
-          .catch(error => console.error("Error handling offer:", error));
-        break;
+        this.handleOffer(from, data.payload)
+        break
       case "answer":
-        console.log(`Received answer from ${data.from}`);
-        if (this.peerConnections[data.from]) {
-          this.peerConnections[data.from].setRemoteDescription(new RTCSessionDescription(data.payload))
-            .catch(error => console.error("Error setting remote description on answer:", error));
-        } else {
-          console.warn(`Received answer from unknown peer: ${data.from}`);
-        }
-        break;
+        this.handleAnswer(from, data.payload)
+        break
       case "candidate":
-        console.log(`Received ICE candidate from ${data.from}`);
-        if (this.peerConnections[data.from]) {
-          this.peerConnections[data.from].addIceCandidate(new RTCIceCandidate(data.payload))
-            .catch(error => console.error("Error adding received ICE candidate:", error));
-        } else {
-          console.warn(`Received candidate from unknown peer: ${data.from}`);
-        }
-        break;
+        this.handleRemoteCandidate(from, data.payload)
+        break
       case "leave":
-        console.log(`User ${data.from} left`);
-        this.removePeerConnection(data.from);
-        break;
+        this.removePeerConnection(from)
+        break
+      case "chat":
+        // already handled in onChat
+        break
       default:
-        console.warn("Unknown signal type:", data.type);
+        break
     }
   }
 
-  // Turbo Stream support: inject HTML into the DOM
   applyTurboStream(turboStreamHtml) {
-    const template = document.createElement('template');
-    template.innerHTML = turboStreamHtml.trim();
-    const stream = template.content.firstElementChild;
-    if (stream && stream.tagName === 'TURBO-STREAM') {
-      document.body.appendChild(stream); // Or use Turbo.renderStreamMessage if available
+    const template = document.createElement("template")
+    template.innerHTML = String(turboStreamHtml).trim()
+    const stream = template.content.firstElementChild
+    if (stream && stream.tagName === "TURBO-STREAM") {
+      if (window.Turbo?.renderStreamMessage) {
+        window.Turbo.renderStreamMessage(turboStreamHtml)
+      } else {
+        document.body.appendChild(stream)
+      }
     }
   }
 
-  // Minimal default event handlers (can be overridden)
   onJoin(data) {
-    if (data.participants) {
-      this.updateParticipantList(data.participants);
-    }
+    if (data.participants) this.updateParticipantList(data.participants)
   }
 
   onLeave(data) {
-    if (data.participants) {
-      this.updateParticipantList(data.participants);
-    }
+    if (data.participants) this.updateParticipantList(data.participants)
   }
 
   onChat(data) {
-    this.appendChatMessage(data);
+    const message = data.payload?.message ?? data.message
+    if (!message) return
+    this.appendChatMessage({ from: data.from, message })
   }
 
   updateParticipantList(participants) {
-    // Minimal default: log or update a list if present
-    const list = document.getElementById('fenetre-participant-list');
-    if (list) {
-      list.innerHTML = '';
-      participants.forEach(id => {
-        const li = document.createElement('li');
-        li.textContent = `User ${id}`;
-        list.appendChild(li);
-      });
-    }
+    const list = document.getElementById("fenetre-participant-list")
+    if (!list) return
+    list.innerHTML = ""
+    participants.forEach((id) => {
+      const li = document.createElement("li")
+      li.textContent = `User ${id}`
+      list.appendChild(li)
+    })
   }
 
   appendChatMessage(data) {
-    if (!this.hasChatMessagesTarget) return;
-    
-    const messageEl = document.createElement('div');
-    messageEl.className = 'fenetre-chat-message';
-    messageEl.textContent = `${data.from}: ${data.message}`;
-    this.chatMessagesTarget.appendChild(messageEl);
-    this.chatMessagesTarget.scrollTop = this.chatMessagesTarget.scrollHeight;
+    if (!this.hasChatMessagesTarget) return
+    const messageEl = document.createElement("div")
+    messageEl.className = "fenetre-chat-message"
+    messageEl.textContent = `${data.from}: ${data.message}`
+    this.chatMessagesTarget.appendChild(messageEl)
+    this.chatMessagesTarget.scrollTop = this.chatMessagesTarget.scrollHeight
   }
 
-  // Chat functionality
   sendChat(event) {
-    event.preventDefault();
-    
-    if (!this.hasChatInputTarget) {
-      console.error("Chat input target not found!");
-      return;
-    }
-    
-    const message = this.chatInputTarget.value.trim();
-    if (!message) return;
-    
-    // Send via ActionCable
-    if (this.subscription) {
-      this.subscription.perform("send_message", { message });
-      
-      // Clear input field
-      this.chatInputTarget.value = "";
-      
-      // Add to local display
-      if (this.hasChatMessagesTarget) {
-        const messageEl = document.createElement('div');
-        messageEl.className = 'fenetre-chat-message fenetre-chat-message-self';
-        messageEl.textContent = "You: " + message;
-        this.chatMessagesTarget.appendChild(messageEl);
-        this.chatMessagesTarget.scrollTop = this.chatMessagesTarget.scrollHeight;
-      }
-    } else {
-      console.warn("Subscription not available for sending message");
-    }
+    event?.preventDefault?.()
+    if (!this.hasChatInputTarget) return
+    const message = this.chatInputTarget.value.trim()
+    if (!message || !this.subscription) return
+
+    this.subscription.perform("send_message", { message })
+    this.chatInputTarget.value = ""
+    this.appendChatMessage({ from: "You", message })
   }
-  
-  // Video toggle functionality
+
   toggleVideo() {
-    if (this.localStream) {
-      const videoTracks = this.localStream.getVideoTracks();
-      if (videoTracks.length > 0) {
-        const track = videoTracks[0];
-        track.enabled = !track.enabled;
-        
-        // Update UI to reflect current state
-        const button = this.element.querySelector('button[data-action*="fenetre--video-chat#toggleVideo"]');
-        if (button) {
-          button.classList.toggle('video-off', !track.enabled);
-          button.setAttribute('aria-label', track.enabled ? 'Turn off camera' : 'Turn on camera');
-        }
-      }
-    }
-  }
-  
-  // Audio toggle functionality
-  toggleAudio() {
-    if (this.localStream) {
-      const audioTracks = this.localStream.getAudioTracks();
-      if (audioTracks.length > 0) {
-        const track = audioTracks[0];
-        track.enabled = !track.enabled;
-        
-        // Update UI to reflect current state
-        const button = this.element.querySelector('button[data-action*="fenetre--video-chat#toggleAudio"]');
-        if (button) {
-          button.classList.toggle('audio-off', !track.enabled);
-          button.setAttribute('aria-label', track.enabled ? 'Mute microphone' : 'Unmute microphone');
-        }
-      }
+    const track = this.localStream?.getVideoTracks()?.[0]
+    if (!track) return
+    track.enabled = !track.enabled
+    const button = this.element.querySelector(
+      'button[data-action*="fenetre--video-chat#toggleVideo"]'
+    )
+    if (button) {
+      button.classList.toggle("video-off", !track.enabled)
+      button.setAttribute("aria-label", track.enabled ? "Turn off camera" : "Turn on camera")
+      button.setAttribute("aria-pressed", String(!track.enabled))
     }
   }
 
-  // Screen sharing functionality
-  toggleScreenShare() {
-    if (this.isScreenSharing) {
-      this.stopScreenSharing();
-    } else {
-      this.startScreenSharing();
+  toggleAudio() {
+    const track = this.localStream?.getAudioTracks()?.[0]
+    if (!track) return
+    track.enabled = !track.enabled
+    const button = this.element.querySelector(
+      'button[data-action*="fenetre--video-chat#toggleAudio"]'
+    )
+    if (button) {
+      button.classList.toggle("audio-off", !track.enabled)
+      button.setAttribute("aria-label", track.enabled ? "Mute microphone" : "Unmute microphone")
+      button.setAttribute("aria-pressed", String(!track.enabled))
     }
+  }
+
+  toggleScreenShare() {
+    if (this.isScreenSharing) this.stopScreenSharing()
+    else this.startScreenSharing()
   }
 
   async startScreenSharing() {
     try {
-      // Get screen sharing stream
-      this.screenStream = await navigator.mediaDevices.getDisplayMedia({ 
-        video: { 
+      this.screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
           cursor: "always",
-          displaySurface: "monitor" 
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          frameRate: { ideal: 30, max: 60 },
         },
-        audio: false 
-      });
+        audio: false,
+      })
 
-      // Save current video stream for later
-      this.savedVideoTrack = this.localStream.getVideoTracks()[0];
-      
-      // Replace video track in local stream with screen share track
-      const screenTrack = this.screenStream.getVideoTracks()[0];
-      
-      // Replace track in all peer connections
-      Object.values(this.peerConnections).forEach(pc => {
-        const senders = pc.getSenders();
-        const videoSender = senders.find(sender => 
-          sender.track && sender.track.kind === 'video'
-        );
-        
-        if (videoSender) {
-          videoSender.replaceTrack(screenTrack);
-        }
-      });
-      
-      // Replace track in local video
-      this.localStream.removeTrack(this.savedVideoTrack);
-      this.localStream.addTrack(screenTrack);
-      
-      // Show local screen share
-      this.localVideoTarget.srcObject = this.localStream;
-      
-      // Update UI
-      const button = this.element.querySelector('button[data-action*="fenetre--video-chat#toggleScreenShare"]');
-      if (button) {
-        button.classList.add('screen-sharing');
-        button.setAttribute('aria-label', 'Stop screen sharing');
-        button.textContent = 'Stop Sharing';
+      this.savedVideoTrack = this.localStream?.getVideoTracks()?.[0] || null
+      const screenTrack = this.screenStream.getVideoTracks()[0]
+
+      await this.replaceVideoTrack(screenTrack, 4_000_000)
+
+      if (this.savedVideoTrack && this.localStream) {
+        this.localStream.removeTrack(this.savedVideoTrack)
+        this.localStream.addTrack(screenTrack)
+        if (this.hasLocalVideoTarget) this.localVideoTarget.srcObject = this.localStream
       }
-      
-      this.isScreenSharing = true;
-      
-      // Handle case when user stops sharing via browser UI
-      screenTrack.onended = () => {
-        this.stopScreenSharing();
-      };
-      
+
+      const button = this.element.querySelector(
+        'button[data-action*="fenetre--video-chat#toggleScreenShare"]'
+      )
+      if (button) {
+        button.classList.add("screen-sharing")
+        button.setAttribute("aria-label", "Stop screen sharing")
+        button.textContent = "Stop Sharing"
+      }
+
+      this.isScreenSharing = true
+      screenTrack.onended = () => this.stopScreenSharing()
     } catch (error) {
-      console.error("Error starting screen share:", error);
+      console.error("Error starting screen share:", error)
     }
   }
 
-  stopScreenSharing() {
-    if (!this.isScreenSharing || !this.screenStream || !this.savedVideoTrack) {
-      return;
-    }
-    
+  async stopScreenSharing() {
+    if (!this.isScreenSharing) return
     try {
-      // Stop all tracks in screen stream
-      this.screenStream.getTracks().forEach(track => track.stop());
-      
-      // Remove screen sharing track from local stream
-      const screenTrack = this.localStream.getVideoTracks()[0];
-      if (screenTrack) {
-        this.localStream.removeTrack(screenTrack);
-      }
-      
-      // Add back the original camera video track
-      this.localStream.addTrack(this.savedVideoTrack);
-      
-      // Replace track in all peer connections
-      Object.values(this.peerConnections).forEach(pc => {
-        const senders = pc.getSenders();
-        const videoSender = senders.find(sender => 
-          sender.track && sender.track.kind === 'video'
-        );
-        
-        if (videoSender) {
-          videoSender.replaceTrack(this.savedVideoTrack);
+      this.screenStream?.getTracks()?.forEach((t) => t.stop())
+      this.screenStream = null
+
+      if (this.localStream) {
+        const screenTrack = this.localStream.getVideoTracks()[0]
+        if (screenTrack) this.localStream.removeTrack(screenTrack)
+        if (this.savedVideoTrack) {
+          this.localStream.addTrack(this.savedVideoTrack)
+          await this.replaceVideoTrack(this.savedVideoTrack, this.maxVideoBitrateValue)
         }
-      });
-      
-      // Update local video
-      this.localVideoTarget.srcObject = this.localStream;
-      
-      // Update UI
-      const button = this.element.querySelector('button[data-action*="fenetre--video-chat#toggleScreenShare"]');
-      if (button) {
-        button.classList.remove('screen-sharing');
-        button.setAttribute('aria-label', 'Share screen');
-        button.textContent = 'Share Screen';
+        if (this.hasLocalVideoTarget) this.localVideoTarget.srcObject = this.localStream
       }
-      
-      this.isScreenSharing = false;
-      this.screenStream = null;
-      
+
+      const button = this.element.querySelector(
+        'button[data-action*="fenetre--video-chat#toggleScreenShare"]'
+      )
+      if (button) {
+        button.classList.remove("screen-sharing")
+        button.setAttribute("aria-label", "Share screen")
+        button.textContent = "Share Screen"
+      }
+
+      this.isScreenSharing = false
+      this.savedVideoTrack = null
     } catch (error) {
-      console.error("Error stopping screen share:", error);
+      console.error("Error stopping screen share:", error)
+    }
+  }
+
+  async replaceVideoTrack(track, maxBitrate) {
+    const replacements = Object.values(this.peerConnections).map(async (pc) => {
+      const sender = pc.getSenders().find((s) => s.track && s.track.kind === "video")
+      if (!sender) return
+      await sender.replaceTrack(track)
+      await this.applySenderBitrate(sender, maxBitrate)
+    })
+    await Promise.all(replacements)
+  }
+
+  async applySenderBitrate(sender, maxBitrate) {
+    try {
+      const params = sender.getParameters()
+      if (!params.encodings || params.encodings.length === 0) {
+        params.encodings = [{}]
+      }
+      params.encodings[0].maxBitrate = maxBitrate
+      if (sender.track?.kind === "video") {
+        params.encodings[0].maxFramerate = this.frameRateValue
+      }
+      await sender.setParameters(params)
+    } catch (e) {
+      console.warn("Fenetre: setParameters failed", e)
+    }
+  }
+
+  iceConfiguration() {
+    const servers =
+      this.iceServersValue?.length > 0
+        ? this.iceServersValue
+        : [{ urls: "stun:stun.l.google.com:19302" }]
+    return {
+      iceServers: servers,
+      iceCandidatePoolSize: 4,
+      bundlePolicy: "max-bundle",
+      rtcpMuxPolicy: "require",
     }
   }
 
   createPeerConnection(peerId, isOffering) {
+    peerId = String(peerId)
     if (this.peerConnections[peerId]) {
-      console.log(`Peer connection already exists for ${peerId}`);
-      return this.peerConnections[peerId];
+      if (isOffering) this.makeOffer(peerId)
+      return this.peerConnections[peerId]
     }
 
-    console.log(`Creating peer connection for ${peerId}, offering: ${isOffering}`);
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' } // Example STUN server
-        // Add TURN servers here if needed for NAT traversal
-      ]
-    });
-    this.peerConnections[peerId] = pc;
+    const pc = new RTCPeerConnection(this.iceConfiguration())
+    this.peerConnections[peerId] = pc
+    this.iceCandidateQueue[peerId] = []
+    this.makingOffer[peerId] = false
+    this.ignoreOffer[peerId] = false
 
-    // Add local stream tracks
     if (this.localStream) {
-      this.localStream.getTracks().forEach(track => {
-        pc.addTrack(track, this.localStream);
-      });
-      console.log(`Added local tracks to PC for ${peerId}`);
-    } else {
-      console.warn("Local stream not available when creating peer connection");
+      this.localStream.getTracks().forEach((track) => {
+        const sender = pc.addTrack(track, this.localStream)
+        const max =
+          track.kind === "audio" ? this.maxAudioBitrateValue : this.maxVideoBitrateValue
+        this.applySenderBitrate(sender, max)
+      })
     }
 
-    // Handle incoming remote tracks
     pc.ontrack = (event) => {
-      console.log(`Track received from ${peerId}`);
-      this.addRemoteVideo(peerId, event.streams[0]);
-    };
+      const stream = event.streams[0] || new MediaStream([event.track])
+      this.addRemoteVideo(peerId, stream)
+    }
 
-    // Handle ICE candidates
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        console.log(`Sending ICE candidate to ${peerId}`);
-        this.sendSignal(peerId, "candidate", event.candidate);
-      } else {
-        console.log(`All ICE candidates sent for ${peerId}`);
+        this.sendSignal(peerId, "candidate", event.candidate.toJSON?.() || event.candidate)
       }
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      console.log(`ICE connection state for ${peerId}: ${pc.iceConnectionState}`);
-      
-      // Update connection status UI for this peer
-      this.updatePeerConnectionState(peerId, pc);
-      
-      if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed' || pc.iceConnectionState === 'failed') {
-        this.removePeerConnection(peerId);
-      }
-    };
-
-    pc.onconnectionstatechange = () => {
-      console.log(`Connection state for ${peerId}: ${pc.connectionState}`);
-      
-      // Update connection status UI for this peer
-      this.updatePeerConnectionState(peerId, pc);
-      
-      if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
-        this.removePeerConnection(peerId);
-      }
-    };
-
-    // If offering, create and send offer
-    if (isOffering) {
-      pc.createOffer()
-        .then(offer => pc.setLocalDescription(offer))
-        .then(() => {
-          console.log(`Sending offer to ${peerId}`);
-          this.sendSignal(peerId, "offer", pc.localDescription);
-        })
-        .catch(error => console.error("Error creating offer:", error));
     }
 
-    return pc;
+    pc.oniceconnectionstatechange = () => {
+      this.updatePeerConnectionState(peerId, pc)
+      const state = pc.iceConnectionState
+      if (state === "failed") {
+        this.restartIce(peerId)
+      } else if (state === "disconnected") {
+        clearTimeout(this.iceRestartTimers[peerId])
+        this.iceRestartTimers[peerId] = setTimeout(() => {
+          if (
+            this.peerConnections[peerId] &&
+            ["disconnected", "failed"].includes(this.peerConnections[peerId].iceConnectionState)
+          ) {
+            this.restartIce(peerId)
+          }
+        }, 2000)
+      } else if (state === "connected" || state === "completed") {
+        clearTimeout(this.iceRestartTimers[peerId])
+      } else if (state === "closed") {
+        this.removePeerConnection(peerId)
+      }
+    }
+
+    pc.onconnectionstatechange = () => {
+      this.updatePeerConnectionState(peerId, pc)
+      if (pc.connectionState === "failed") {
+        this.restartIce(peerId)
+      } else if (pc.connectionState === "closed") {
+        this.removePeerConnection(peerId)
+      }
+    }
+
+    pc.onnegotiationneeded = async () => {
+      try {
+        await this.makeOffer(peerId)
+      } catch (e) {
+        console.error("negotiationneeded failed", e)
+      }
+    }
+
+    if (isOffering) {
+      this.makeOffer(peerId)
+    }
+
+    return pc
+  }
+
+  async makeOffer(peerId) {
+    const pc = this.peerConnections[peerId]
+    if (!pc) return
+    try {
+      this.makingOffer[peerId] = true
+      const offer = await pc.createOffer({ iceRestart: false })
+      if (pc.signalingState !== "stable") return
+      await pc.setLocalDescription(offer)
+      this.sendSignal(peerId, "offer", pc.localDescription)
+    } catch (e) {
+      console.error("Error creating offer:", e)
+    } finally {
+      this.makingOffer[peerId] = false
+    }
+  }
+
+  async restartIce(peerId) {
+    const pc = this.peerConnections[peerId]
+    if (!pc) return
+    this.updateConnectionStatus("reconnecting")
+    try {
+      const offer = await pc.createOffer({ iceRestart: true })
+      await pc.setLocalDescription(offer)
+      this.sendSignal(peerId, "offer", pc.localDescription)
+    } catch (e) {
+      console.error("ICE restart failed:", e)
+      this.removePeerConnection(peerId)
+    }
+  }
+
+  async handleOffer(peerId, payload) {
+    peerId = String(peerId)
+    const pc = this.createPeerConnection(peerId, false)
+    const offerCollision =
+      this.makingOffer[peerId] || pc.signalingState !== "stable"
+    this.ignoreOffer[peerId] = !this.isPolite(peerId) && offerCollision
+    if (this.ignoreOffer[peerId]) return
+
+    try {
+      await pc.setRemoteDescription(payload)
+      await this.flushIceCandidateQueue(peerId)
+      const answer = await pc.createAnswer()
+      await pc.setLocalDescription(answer)
+      this.sendSignal(peerId, "answer", pc.localDescription)
+    } catch (e) {
+      console.error("Error handling offer:", e)
+    }
+  }
+
+  async handleAnswer(peerId, payload) {
+    peerId = String(peerId)
+    const pc = this.peerConnections[peerId]
+    if (!pc) return
+    try {
+      if (pc.signalingState === "have-local-offer") {
+        await pc.setRemoteDescription(payload)
+        await this.flushIceCandidateQueue(peerId)
+      }
+    } catch (e) {
+      console.error("Error setting remote description on answer:", e)
+    }
+  }
+
+  async handleRemoteCandidate(peerId, candidate) {
+    peerId = String(peerId)
+    const pc = this.peerConnections[peerId]
+    if (!pc || !candidate) return
+    if (!pc.remoteDescription) {
+      this.iceCandidateQueue[peerId] = this.iceCandidateQueue[peerId] || []
+      this.iceCandidateQueue[peerId].push(candidate)
+      return
+    }
+    try {
+      await pc.addIceCandidate(candidate)
+    } catch (e) {
+      if (!this.ignoreOffer[peerId]) {
+        console.error("Error adding ICE candidate:", e)
+      }
+    }
+  }
+
+  async flushIceCandidateQueue(peerId) {
+    const pc = this.peerConnections[peerId]
+    const queue = this.iceCandidateQueue[peerId] || []
+    this.iceCandidateQueue[peerId] = []
+    for (const candidate of queue) {
+      try {
+        await pc.addIceCandidate(candidate)
+      } catch (e) {
+        console.error("Error flushing ICE candidate:", e)
+      }
+    }
   }
 
   updatePeerConnectionState(peerId, pc) {
-    // Find the status indicator for this peer
-    const videoContainer = this.remoteVideosTarget.querySelector(`[data-peer-id="${peerId}"]`);
-    if (!videoContainer) return;
-    
-    let statusElement = videoContainer.querySelector('.fenetre-peer-status');
+    const videoContainer = this.remoteVideosTarget?.querySelector(`[data-peer-id="${peerId}"]`)
+    if (!videoContainer) return
+
+    let statusElement = videoContainer.querySelector(".fenetre-peer-status")
     if (!statusElement) {
-      statusElement = document.createElement('div');
-      statusElement.className = 'fenetre-peer-status';
-      videoContainer.appendChild(statusElement);
+      statusElement = document.createElement("div")
+      statusElement.className = "fenetre-peer-status"
+      videoContainer.appendChild(statusElement)
     }
-    
-    // Clear previous classes
-    statusElement.className = 'fenetre-peer-status';
-    
-    // Set status based on connection state
-    if (pc.connectionState === 'connected') {
-      statusElement.classList.add('fenetre-peer-connected');
-      statusElement.textContent = 'Connected';
-    } else if (pc.connectionState === 'connecting' || pc.iceConnectionState === 'checking') {
-      statusElement.classList.add('fenetre-peer-connecting');
-      statusElement.textContent = 'Connecting...';
-    } else if (pc.connectionState === 'disconnected' || pc.iceConnectionState === 'disconnected') {
-      statusElement.classList.add('fenetre-peer-disconnected');
-      statusElement.textContent = 'Disconnected';
-    } else if (pc.connectionState === 'failed' || pc.iceConnectionState === 'failed') {
-      statusElement.classList.add('fenetre-peer-failed');
-      statusElement.textContent = 'Connection Failed';
+
+    statusElement.className = "fenetre-peer-status"
+    if (pc.connectionState === "connected" || pc.iceConnectionState === "completed") {
+      statusElement.classList.add("fenetre-peer-connected")
+      statusElement.textContent = "Connected"
+    } else if (
+      pc.connectionState === "connecting" ||
+      pc.iceConnectionState === "checking" ||
+      pc.iceConnectionState === "disconnected"
+    ) {
+      statusElement.classList.add("fenetre-peer-connecting")
+      statusElement.textContent =
+        pc.iceConnectionState === "disconnected" ? "Reconnecting..." : "Connecting..."
+    } else if (pc.connectionState === "failed" || pc.iceConnectionState === "failed") {
+      statusElement.classList.add("fenetre-peer-failed")
+      statusElement.textContent = "Connection Failed"
     }
   }
 
   removePeerConnection(peerId) {
-    console.log(`Removing peer connection and video for ${peerId}`);
+    peerId = String(peerId)
+    clearTimeout(this.iceRestartTimers[peerId])
+    delete this.iceRestartTimers[peerId]
+    delete this.makingOffer[peerId]
+    delete this.ignoreOffer[peerId]
+    delete this.iceCandidateQueue[peerId]
     if (this.peerConnections[peerId]) {
-      this.peerConnections[peerId].close();
-      delete this.peerConnections[peerId];
+      this.peerConnections[peerId].close()
+      delete this.peerConnections[peerId]
     }
-    const remoteVideoElement = this.remoteVideosTarget.querySelector(`[data-peer-id="${peerId}"]`);
-    if (remoteVideoElement) {
-      remoteVideoElement.remove();
-    }
+    this.remoteVideosTarget
+      ?.querySelector(`[data-peer-id="${peerId}"]`)
+      ?.remove()
   }
 
   sendSignal(peerId, type, payload) {
-    // Note: The channel broadcasts to the room, the server relays it.
-    // We don't send directly to a peerId via ActionCable here.
-    this.subscription.perform("signal", { type, payload });
-    // Log what would be sent if it were direct (for clarity)
-    // console.log(`Sending signal to ${peerId}: ${type}`, payload);
+    if (!this.subscription) return
+    const plain =
+      payload && typeof payload.toJSON === "function" ? payload.toJSON() : payload
+    this.subscription.perform("signal", {
+      type,
+      to: peerId,
+      payload: plain,
+    })
   }
 
   addRemoteVideo(peerId, stream) {
-    console.log(`Adding remote video for ${peerId}`);
-    let videoElement = this.remoteVideosTarget.querySelector(`[data-peer-id="${peerId}"] video`);
+    if (!this.hasRemoteVideosTarget) return
+    peerId = String(peerId)
+    let videoElement = this.remoteVideosTarget.querySelector(
+      `[data-peer-id="${peerId}"] video`
+    )
 
     if (!videoElement) {
-      const videoContainer = document.createElement('div');
-      videoContainer.setAttribute('data-peer-id', peerId);
-      videoContainer.className = 'fenetre-remote-video-container';
-      videoContainer.style.display = 'inline-block'; // Basic layout
-      videoContainer.style.margin = '5px';
-      videoContainer.style.position = 'relative';
+      const videoContainer = document.createElement("div")
+      videoContainer.setAttribute("data-peer-id", peerId)
+      videoContainer.className = "fenetre-remote-video-container"
 
-      videoElement = document.createElement('video');
-      videoElement.setAttribute('autoplay', '');
-      videoElement.setAttribute('playsinline', ''); // Important for mobile
-      videoElement.style.width = '200px'; // Example size
-      videoElement.style.height = '150px';
-      videoElement.muted = false; // Unmute remote streams
+      videoElement = document.createElement("video")
+      videoElement.autoplay = true
+      videoElement.playsInline = true
+      videoElement.setAttribute("playsinline", "")
+      videoElement.muted = false
 
-      const peerIdLabel = document.createElement('p');
-      peerIdLabel.textContent = `User: ${peerId}`;
-      peerIdLabel.style.fontSize = '12px';
-      peerIdLabel.style.textAlign = 'center';
-      
-      // Add connection status indicator
-      const statusElement = document.createElement('div');
-      statusElement.className = 'fenetre-peer-status fenetre-peer-connecting';
-      statusElement.textContent = 'Connecting...';
-      
-      videoContainer.appendChild(videoElement);
-      videoContainer.appendChild(peerIdLabel);
-      videoContainer.appendChild(statusElement);
-      this.remoteVideosTarget.appendChild(videoContainer);
-      
-      // Update connection state for this new peer
+      const peerIdLabel = document.createElement("p")
+      peerIdLabel.className = "fenetre-peer-label"
+      peerIdLabel.textContent = `User ${peerId}`
+
+      const statusElement = document.createElement("div")
+      statusElement.className = "fenetre-peer-status fenetre-peer-connecting"
+      statusElement.textContent = "Connecting..."
+
+      videoContainer.appendChild(videoElement)
+      videoContainer.appendChild(peerIdLabel)
+      videoContainer.appendChild(statusElement)
+      this.remoteVideosTarget.appendChild(videoContainer)
+
       if (this.peerConnections[peerId]) {
-        this.updatePeerConnectionState(peerId, this.peerConnections[peerId]);
+        this.updatePeerConnectionState(peerId, this.peerConnections[peerId])
       }
     }
 
-    videoElement.srcObject = stream;
+    videoElement.srcObject = stream
+    videoElement.play?.().catch(() => {})
   }
-}
 }

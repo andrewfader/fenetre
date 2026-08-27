@@ -41,9 +41,11 @@ module Fenetre
 
       assert_not_nil remote_videos_div, 'Remote videos container div should exist'
 
-      # Check headings (optional but good for structure)
-      assert_match(/My Video/i, rendered_html)
-      assert_match(/Remote Videos/i, rendered_html)
+      # Stage layout: video is primary; sidebar holds participants + chat
+      assert_includes rendered_html, 'fenetre-stage'
+      assert_includes rendered_html, 'fenetre-remote-grid'
+      assert_match(/Participants/i, rendered_html)
+      assert_match(/Chat/i, rendered_html)
     end
 
     test 'fenetre_video_chat_container renders required data-controller and targets' do
@@ -78,12 +80,13 @@ module Fenetre
     end
 
     test 'video_chat_main_container renders all sections' do
-      html = send(:video_chat_main_container, 'roomX', 'userY', 'dark')
-      %w[Participants My\ Video Remote\ Videos Chat].each do |heading|
+      html = send(:video_chat_main_container, 'roomX', 'userY', 'dark', nil)
+      %w[Participants Chat].each do |heading|
         assert_match(/<h3[^>]*>#{heading}/, html)
       end
       assert_includes html, 'fenetre-connection-status'
       assert_includes html, 'fenetre-controls'
+      assert_includes html, 'fenetre-stage'
       assert_includes html, 'fenetre-video-section'
       assert_includes html, 'fenetre-chat-container'
     end
@@ -122,7 +125,7 @@ module Fenetre
 
     test 'media_control_section renders all control buttons' do
       html = send(:media_control_section)
-      %w[Toggle\ Video Toggle\ Audio Share\ Screen].each do |label|
+      %w[Camera Mic Share\ Screen].each do |label|
         assert_match(/<button[^>]*>#{label}/, html)
       end
     end
@@ -152,7 +155,7 @@ module Fenetre
     test 'chat_input_container renders input and send button' do
       html = send(:chat_input_container)
       assert_includes html, 'type="text"'
-      assert_includes html, 'placeholder="Type your message..."'
+      assert_includes html, 'placeholder="Message the room…"'
       assert_includes html, 'fenetre-chat-send-button'
     end
   end

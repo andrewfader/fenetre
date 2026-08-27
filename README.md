@@ -35,8 +35,30 @@ Customize the video chat experience using options:
   room_id,
   current_user.id,
   theme: 'light',                   # 'dark' (default) or 'light'
-  # Add other options as needed based on helper definition
+  ice_servers: [                    # optional override; prefer Fenetre.configure
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'turn:turn.example.com:3478', username: 'u', credential: 'p' }
+  ]
 ) %>
+```
+
+### ICE / TURN (required for real networks)
+
+STUN alone is not enough for many NATs. Configure TURN in an initializer:
+
+```ruby
+# config/initializers/fenetre.rb
+Fenetre.configure do |c|
+  c.ice_servers = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'turn:turn.example.com:3478', username: ENV.fetch('TURN_USER'), credential: ENV.fetch('TURN_PASS') }
+  ]
+  c.video_width = 1280
+  c.video_height = 720
+  c.frame_rate = 30
+  c.max_video_bitrate = 2_500_000
+  c.max_audio_bitrate = 128_000
+end
 ```
 
 ### JavaScript Interaction (Optional)
