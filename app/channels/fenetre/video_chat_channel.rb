@@ -2,174 +2,121 @@
 
 module Fenetre
   class VideoChatChannel < ActionCable::Channel::Base
-    # Handles signaling messages for WebRTC
-    @@participants = Hash.new { |h, k| h[k] = [] }
+    SIGNAL_TYPES = %w[offer answer candidate screen_share raise_hand lower_hand].freeze
 
     def subscribed
-      return reject unless current_user
+      return reject unless connection.respond_to?(:current_user) && current_user
+      return reject if params[:room_id].blank?
 
-      @room_id = params[:room_id]
-      return reject if @room_id.blank?
+      @room_id = params[:room_id].to_s
+      return reject unless Fenetre.authorize_room.call(current_user, @room_id)
 
-      init_participants(@room_id)
-      return reject if params[:room_locked] && user_role != :host
-      return reject if params[:max_participants] && participants(@room_id).size >= params[:max_participants].to_i
+      @options = Fenetre.room_options.call(current_user, @room_id).symbolize_keys
+      return reject if @options[:room_locked] && user_role != :host
 
-      stream_from room_stream(@room_id)
+      @accepted = true
+      stream_from room_stream
+      stream_from user_stream(current_user.id)
     end
 
     def unsubscribed
-      return unless @room_id
+      @accepted = false
+      return unless @joined
 
-      remove_participant(@room_id, current_user.id)
-      broadcast_leave(@room_id, current_user.id)
-      log_analytics(:leave, current_user.id, @room_id)
+      @joined = false
+      remaining = Fenetre.presence.leave(@room_id, current_user.id)
+      broadcast('type' => 'leave', 'from' => current_user.id, 'participants' => remaining)
+      instrument(:leave)
+    end
+
+    def join_room(_data = {})
+      return unless @accepted && !@joined
+
+      participants = Fenetre.presence.join(@room_id, current_user.id, @options[:max_participants])
+      unless participants
+        @accepted = false
+        stop_all_streams
+        return reject
+      end
+
+      @joined = true
+      message = { 'type' => 'join', 'from' => current_user.id, 'participants' => participants }
+      message['topic'] = @options[:room_topic] if @options[:room_topic]
+      broadcast(message)
+      instrument(:join)
     end
 
     def signal(data)
-      return unless @room_id
+      return unless @accepted && @joined
 
-      init_participants(@room_id)
-      type = data['type'] || data[:type]
-      payload = data['payload'] || data[:payload]
-      to = data['to'] || data[:to]
-      return if type == 'screen_share' && !params[:enable_screen_sharing]
+      type = data['type'].to_s
+      return unless SIGNAL_TYPES.include?(type)
+      return if type == 'screen_share' && @options[:enable_screen_sharing] == false
 
-      broadcast_signal(@room_id, type, current_user.id, payload, to)
-    end
-
-    def join_room(_data)
-      return unless @room_id
-
-      add_participant(@room_id, current_user.id)
-      message = {
-        'type' => 'join',
-        'from' => current_user.id,
-        'participants' => participants(@room_id).dup
-      }
-      message['topic'] = params[:room_topic] if params[:room_topic]
-      message['max_participants'] = params[:max_participants] if params[:max_participants]
-      message['turbo_stream'] = '<turbo-stream action="append">...</turbo-stream>'
-      ActionCable.server.broadcast(room_stream(@room_id), message)
-      log_analytics(:join, current_user.id, @room_id)
-    end
-
-    def kick(data)
-      return unless user_role == :host
-
-      user_id = data['user_id'] || data[:user_id]
-      ActionCable.server.broadcast(room_stream(@room_id),
-                                   { 'type' => 'kick', 'from' => current_user.id,
-                                     'payload' => { 'user_id' => user_id } })
-    end
-
-    def mute(data)
-      return unless user_role == :host
-
-      user_id = data['user_id'] || data[:user_id]
-      ActionCable.server.broadcast(room_stream(@room_id),
-                                   { 'type' => 'mute', 'from' => current_user.id,
-                                     'payload' => { 'user_id' => user_id } })
-    end
-
-    def unmute(data)
-      return unless user_role == :host
-
-      user_id = data['user_id'] || data[:user_id]
-      ActionCable.server.broadcast(room_stream(@room_id),
-                                   { 'type' => 'unmute', 'from' => current_user.id,
-                                     'payload' => { 'user_id' => user_id } })
+      message = { 'type' => type, 'from' => current_user.id, 'payload' => data['payload'] }
+      deliver(message, data['to'])
     end
 
     def chat(data)
-      return unless @room_id
+      return unless @accepted && @joined
+      return if data['to'].present? && !@options[:enable_private_chat]
 
-      init_participants(@room_id)
-      return if (data['to'] || data[:to]) && !params[:enable_private_chat]
-
-      message = data['message'] || data[:message]
-      message = message.to_s.strip
+      message = data['message'].to_s.strip.each_char.take(2000).join
       return if message.empty?
-      # Cap length — Zoom-class chat is not an unbounded paste dump.
-      message = message.byteslice(0, 2000)
 
-      to = data['to'] || data[:to]
-      ActionCable.server.broadcast(room_stream(@room_id),
-                                   { 'type' => 'chat', 'from' => current_user.id,
-                                     'payload' => { 'message' => message, 'to' => to } })
+      deliver({ 'type' => 'chat', 'from' => current_user.id,
+                'payload' => { 'message' => message, 'to' => data['to'] } }, data['to'])
     end
-
-    # Client historically called send_message; keep both names working.
     alias send_message chat
 
-    def perform(action, data = {})
-      raise NoMethodError, "undefined action '#{action}' for #{self.class}" unless respond_to?(action)
-
-      public_send(action, data)
+    def kick(data)
+      moderate('kick', data)
     end
 
-    def reject
-      @_rejected = true
-      super if defined?(super)
+    def mute(data)
+      moderate('mute', data)
     end
 
-    def rejected?
-      !!@_rejected
-    end
-
-    def confirmed?
-      !rejected?
+    def unmute(data)
+      moderate('unmute', data)
     end
 
     private
 
     def user_role
-      connection.respond_to?(:user_role) ? connection.user_role : nil
+      connection.respond_to?(:user_role) ? connection.user_role&.to_sym : nil
     end
 
-    def room_stream(room_id)
-      "fenetre_video_chat_#{room_id}"
+    def room_stream
+      "fenetre_video_chat_#{@room_id}"
     end
 
-    def init_participants(room_id)
-      @@participants[room_id] ||= []
+    def user_stream(user_id)
+      "fenetre_user_#{[@room_id, user_id.to_s].to_json}"
     end
 
-    def participants(room_id)
-      @@participants[room_id] ||= []
+    def broadcast(message)
+      ActionCable.server.broadcast(room_stream, message)
     end
 
-    def add_participant(room_id, user_id)
-      @@participants[room_id] << user_id unless @@participants[room_id].include?(user_id)
+    def deliver(message, to)
+      if to.present?
+        message['to'] = to
+        ActionCable.server.broadcast(user_stream(to), message)
+      else
+        broadcast(message)
+      end
     end
 
-    def remove_participant(room_id, user_id)
-      @@participants[room_id]&.delete(user_id)
+    def moderate(type, data)
+      return unless @accepted && @joined && user_role == :host && data['user_id'].present?
+
+      deliver({ 'type' => type, 'from' => current_user.id,
+                'payload' => { 'user_id' => data['user_id'] } }, data['user_id'])
     end
 
-    def broadcast_leave(room_id, user_id)
-      ActionCable.server.broadcast(room_stream(room_id),
-                                   { 'type' => 'leave', 'from' => user_id,
-                                     'participants' => participants(room_id).dup })
-    end
-
-    def broadcast_signal(room_id, type, from, payload, to = nil)
-      message = { 'type' => type, 'from' => from, 'payload' => payload }
-      message['to'] = to if to
-      ActionCable.server.broadcast(room_stream(room_id), message)
-    end
-
-    def log_analytics(event, user_id, room_id)
-      $fenetre_analytics ||= []
-      $fenetre_analytics << [event, user_id, room_id]
-    end
-
-    def stringify_keys(hash)
-      hash.transform_keys(&:to_s)
-    end
-
-    def broadcast_to_room(message)
-      ActionCable.server.broadcast(room_stream(@room_id), stringify_keys(message))
+    def instrument(event)
+      ActiveSupport::Notifications.instrument("#{event}.fenetre", user_id: current_user.id, room_id: @room_id)
     end
   end
 end

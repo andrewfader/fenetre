@@ -7,6 +7,7 @@ class IntegrationHostAppTest < ActionDispatch::IntegrationTest
     # Create a test controller in the dummy app
     Object.const_set('TestHostController', Class.new(ApplicationController) do
       include Fenetre::VideoChatHelper
+
       def index
         render inline: "<%= fenetre_video_chat_container('test_room_123', 'test_user_456') %>"
       end
@@ -26,7 +27,7 @@ class IntegrationHostAppTest < ActionDispatch::IntegrationTest
       # Verify the HTML structure contains expected elements using Nokogiri
       doc = Nokogiri::HTML(response.body)
       assert doc.at_css('div[data-controller="fenetre--video-chat"]'), 'Expected video chat container'
-      assert doc.at_css('input[data-fenetre-video-chat-target="roomId"][value="test_room_123"]'), 'Expected roomId input'
+      assert doc.at_css('input[data-fenetre--video-chat-target="roomId"][value="test_room_123"]'), 'Expected roomId input'
     end
 
     # Clean up

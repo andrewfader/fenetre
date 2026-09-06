@@ -7,15 +7,38 @@ A Rails engine that adds WebRTC video chat to your app using ActionCable, Stimul
 
 ## Setup
 
-Fenetre automatically handles most of the necessary setup when used with `importmap-rails`:
+Add the gem, then import it once from your entrypoint:
 
-- Mounting the Action Cable server at `/cable` (if not already mounted).
-- Making the Stimulus controllers available via the import map.
-- Making the view helper available.
+```javascript
+// app/javascript/application.js
+import "fenetre"
+```
 
-**Important:**
-- Your host application **must** use `importmap-rails`.
-- Your host application's `app/javascript/application.js` should load Stimulus controllers (e.g., contain `import "./controllers"`).
+That single import registers the `fenetre--video-chat` Stimulus controller on your
+application (it reuses `window.Stimulus` when your app already started one).
+
+The engine adds its own pins to the host import map, so no `bin/importmap pin`
+is needed for `fenetre`, `@hotwired/stimulus`, or `@rails/actioncable`.
+
+**Requirements:**
+- Your host application uses `importmap-rails` and `propshaft`.
+- Action Cable is mounted (Rails mounts it at `/cable` by default).
+- Your `ApplicationCable::Connection` identifies `current_user` — the channel rejects
+  anonymous subscriptions. Identify `user_role` too if you want moderation:
+
+```ruby
+# app/channels/application_cable/connection.rb
+module ApplicationCable
+  class Connection < ActionCable::Connection::Base
+    identified_by :current_user, :user_role
+
+    def connect
+      self.current_user = User.find_by(id: cookies.encrypted[:user_id]) || reject_unauthorized_connection
+      self.user_role = current_user.host? ? :host : :guest
+    end
+  end
+end
+```
 
 Add the video chat container helper to any view where you want the chat interface:
 
@@ -60,6 +83,50 @@ Fenetre.configure do |c|
   c.max_audio_bitrate = 128_000
 end
 ```
+
+### Room policy lives on the server
+
+Nothing a browser sends decides who gets in, how many people fit, or who may
+moderate. Configure that in an initializer:
+
+```ruby
+# config/initializers/fenetre.rb
+Fenetre.configure do |c|
+  # Return false to reject the subscription outright.
+  c.authorize_room = ->(user, room_id) { Room.find_by(slug: room_id)&.member?(user) }
+
+  # Per-room settings, evaluated on every subscription.
+  c.room_options = lambda do |user, room_id|
+    {
+      max_participants: 8,          # join is refused atomically once the room is full
+      room_locked: false,           # when true, only a :host connection may subscribe
+      enable_private_chat: true,    # required before a directed chat message is delivered
+      enable_screen_sharing: true,  # false drops screen_share signals
+      room_topic: 'Daily standup'   # broadcast with the join message
+    }
+  end
+end
+```
+
+Directed chat and moderation (`kick`, `mute`, `unmute`) are delivered only to the
+target user's own stream, and only a connection whose `user_role` is `:host` may
+moderate. Chat is trimmed to 2000 characters and always rendered as text.
+
+### Presence across processes
+
+The default presence store is process-local, which is correct for a single Puma
+process and wrong for anything larger. Supply your own store with the same two
+atomic methods (`join(room, user, limit)` returning the participant list or `nil`
+when full, and `leave(room, user)`), backed by Redis or your database:
+
+```ruby
+Fenetre.presence = MyRedisPresence.new
+```
+
+### Instrumentation
+
+`join.fenetre` and `leave.fenetre` are emitted through `ActiveSupport::Notifications`
+with `user_id` and `room_id` payloads.
 
 ### JavaScript Interaction (Optional)
 

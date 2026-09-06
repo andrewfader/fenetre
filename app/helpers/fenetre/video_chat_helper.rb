@@ -14,13 +14,13 @@ module Fenetre
       servers = ice_servers || Fenetre.ice_servers
       content_tag(:div, class: "fenetre-video-chat-container fenetre-theme-#{theme}", data: {
                     controller: 'fenetre--video-chat',
-                    fenetre_video_chat_user_id_value: user_id.to_s,
-                    fenetre_video_chat_ice_servers_value: servers,
-                    fenetre_video_chat_max_video_bitrate_value: Fenetre.max_video_bitrate,
-                    fenetre_video_chat_max_audio_bitrate_value: Fenetre.max_audio_bitrate,
-                    fenetre_video_chat_video_width_value: Fenetre.video_width,
-                    fenetre_video_chat_video_height_value: Fenetre.video_height,
-                    fenetre_video_chat_frame_rate_value: Fenetre.frame_rate,
+                    fenetre__video_chat_user_id_value: user_id.to_s,
+                    fenetre__video_chat_ice_servers_value: servers,
+                    fenetre__video_chat_max_video_bitrate_value: Fenetre.max_video_bitrate,
+                    fenetre__video_chat_max_audio_bitrate_value: Fenetre.max_audio_bitrate,
+                    fenetre__video_chat_video_width_value: Fenetre.video_width,
+                    fenetre__video_chat_video_height_value: Fenetre.video_height,
+                    fenetre__video_chat_frame_rate_value: Fenetre.frame_rate,
                     fenetre_theme: theme
                   }) do
         hidden_room_id_input(room_id) +
@@ -41,11 +41,11 @@ module Fenetre
     def connection_status_indicator
       content_tag(:div, 'Connecting...',
                   class: 'fenetre-connection-status',
-                  data: { fenetre_video_chat_target: 'connectionStatus' })
+                  data: { fenetre__video_chat_target: 'connectionStatus' })
     end
 
     def hidden_room_id_input(room_id)
-      content_tag(:input, nil, type: 'hidden', value: room_id, data: { fenetre_video_chat_target: 'roomId' })
+      content_tag(:input, nil, type: 'hidden', value: room_id, data: { fenetre__video_chat_target: 'roomId' })
     end
 
     def section_heading(text)
@@ -53,13 +53,13 @@ module Fenetre
     end
 
     def participants_list
-      content_tag(:ul, '', id: 'fenetre-participant-list')
+      content_tag(:ul, '', class: 'fenetre-participant-list', data: { fenetre__video_chat_target: 'participants' })
     end
 
     def local_video_section
       content_tag(:div, class: 'fenetre-video-section fenetre-local-section') do
         content_tag(:video, '',
-                    data: { fenetre_video_chat_target: 'localVideo' },
+                    data: { fenetre__video_chat_target: 'localVideo' },
                     autoplay: true,
                     playsinline: true,
                     muted: true,
@@ -86,8 +86,8 @@ module Fenetre
 
     def remote_videos_section
       content_tag(:div, class: 'fenetre-video-section fenetre-remote-section') do
-        content_tag(:div, '', data: { fenetre_video_chat_target: 'remoteVideos' },
-                            class: 'fenetre-remote-grid')
+        content_tag(:div, '', data: { fenetre__video_chat_target: 'remoteVideos' },
+                              class: 'fenetre-remote-grid')
       end
     end
 
@@ -98,7 +98,7 @@ module Fenetre
     end
 
     def chat_messages
-      content_tag(:div, '', data: { fenetre_video_chat_target: 'chatMessages' }, class: 'fenetre-chat-messages')
+      content_tag(:div, '', data: { fenetre__video_chat_target: 'chatMessages' }, class: 'fenetre-chat-messages')
     end
 
     def chat_input_container
@@ -107,7 +107,7 @@ module Fenetre
                                  maxlength: 2000,
                                  autocomplete: 'off',
                                  data: {
-                                   fenetre_video_chat_target: 'chatInput',
+                                   fenetre__video_chat_target: 'chatInput',
                                    action: 'keydown.enter->fenetre--video-chat#sendChat'
                                  }) +
           content_tag(:button, 'Send', type: 'button',

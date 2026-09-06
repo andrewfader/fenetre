@@ -19,17 +19,17 @@ module Fenetre
 
       assert_not_nil top_div, 'Top-level div should exist'
       assert_equal 'fenetre--video-chat', top_div['data-controller']
-      assert_equal user_id.to_s, top_div['data-fenetre-video-chat-user-id-value']
+      assert_equal user_id.to_s, top_div['data-fenetre--video-chat-user-id-value']
 
       # Check hidden input for room_id
       hidden_input = top_div.at('input[type="hidden"]')
 
       assert_not_nil hidden_input, 'Hidden input for room_id should exist'
       assert_equal room_id, hidden_input['value']
-      assert_equal 'roomId', hidden_input['data-fenetre-video-chat-target']
+      assert_equal 'roomId', hidden_input['data-fenetre--video-chat-target']
 
       # Check local video element
-      local_video = top_div.at('video[data-fenetre-video-chat-target="localVideo"]')
+      local_video = top_div.at('video[data-fenetre--video-chat-target="localVideo"]')
 
       assert_not_nil local_video, 'Local video element should exist'
       assert local_video.has_attribute?('autoplay'), 'Video should have autoplay attribute'
@@ -37,7 +37,7 @@ module Fenetre
       assert local_video.has_attribute?('muted'), 'Video should have muted attribute'
 
       # Check remote videos container
-      remote_videos_div = top_div.at('div[data-fenetre-video-chat-target="remoteVideos"]')
+      remote_videos_div = top_div.at('div[data-fenetre--video-chat-target="remoteVideos"]')
 
       assert_not_nil remote_videos_div, 'Remote videos container div should exist'
 
@@ -52,19 +52,19 @@ module Fenetre
       html = fenetre_video_chat_container('room123', 'user456')
 
       assert_includes html, 'data-controller="fenetre--video-chat"'
-      assert_includes html, 'data-fenetre-video-chat-target="localVideo"'
-      assert_includes html, 'data-fenetre-video-chat-target="remoteVideos"'
-      assert_includes html, 'data-fenetre-video-chat-target="roomId"'
+      assert_includes html, 'data-fenetre--video-chat-target="localVideo"'
+      assert_includes html, 'data-fenetre--video-chat-target="remoteVideos"'
+      assert_includes html, 'data-fenetre--video-chat-target="roomId"'
       assert_includes html, 'value="room123"'
-      assert_includes html, 'data-fenetre-video-chat-user-id-value="user456"'
+      assert_includes html, 'data-fenetre--video-chat-user-id-value="user456"'
     end
 
     test 'fenetre_video_chat_container includes video and remote video containers' do
       html = fenetre_video_chat_container('roomABC', 'userXYZ')
 
       assert_includes html, '<video'
-      assert_includes html, 'data-fenetre-video-chat-target="localVideo"'
-      assert_includes html, 'data-fenetre-video-chat-target="remoteVideos"'
+      assert_includes html, 'data-fenetre--video-chat-target="localVideo"'
+      assert_includes html, 'data-fenetre--video-chat-target="remoteVideos"'
     end
 
     test 'fenetre_video_chat_container renders main container and stylesheet' do
@@ -72,6 +72,14 @@ module Fenetre
       assert_includes html, 'fenetre-video-chat-container'
       assert_includes html, 'fenetre-theme-dark'
       assert_includes html, 'fenetre/video_chat'
+    end
+
+    test 'custom ICE servers and capture settings use Stimulus value attributes' do
+      servers = [{ urls: 'turn:example.test', username: 'guest', credential: 'secret' }]
+      html = fenetre_video_chat_container('room', 'user', ice_servers: servers)
+      element = Nokogiri::HTML.fragment(html).at_css('[data-controller]')
+      assert_equal servers.as_json, JSON.parse(element['data-fenetre--video-chat-ice-servers-value'])
+      assert_equal Fenetre.video_width.to_s, element['data-fenetre--video-chat-video-width-value']
     end
 
     test 'fenetre_video_chat_container supports light theme' do
@@ -101,23 +109,23 @@ module Fenetre
       html = send(:hidden_room_id_input, 'room42')
       assert_includes html, 'type="hidden"'
       assert_includes html, 'value="room42"'
-      assert_includes html, 'data-fenetre-video-chat-target="roomId"'
+      assert_includes html, 'data-fenetre--video-chat-target="roomId"'
     end
 
     test 'section_heading renders h3' do
       html = send(:section_heading, 'Test Heading')
-      assert_match(/<h3[^>]*>Test Heading<\/h3>/, html)
+      assert_match(%r{<h3[^>]*>Test Heading</h3>}, html)
     end
 
     test 'participants_list renders ul' do
       html = send(:participants_list)
-      assert_match(/<ul[^>]*id="fenetre-participant-list"/, html)
+      assert_match(/<ul[^>]*class="fenetre-participant-list"/, html)
     end
 
     test 'local_video_section renders video tag' do
       html = send(:local_video_section)
       assert_includes html, '<video'
-      assert_includes html, 'data-fenetre-video-chat-target="localVideo"'
+      assert_includes html, 'data-fenetre--video-chat-target="localVideo"'
       assert_includes html, 'autoplay'
       assert_includes html, 'playsinline'
       assert_includes html, 'muted'
@@ -125,7 +133,7 @@ module Fenetre
 
     test 'media_control_section renders all control buttons' do
       html = send(:media_control_section)
-      %w[Camera Mic Share\ Screen].each do |label|
+      ['Camera', 'Mic', 'Share Screen'].each do |label|
         assert_match(/<button[^>]*>#{label}/, html)
       end
     end
@@ -138,7 +146,7 @@ module Fenetre
 
     test 'remote_videos_section renders remoteVideos target' do
       html = send(:remote_videos_section)
-      assert_includes html, 'data-fenetre-video-chat-target="remoteVideos"'
+      assert_includes html, 'data-fenetre--video-chat-target="remoteVideos"'
     end
 
     test 'chat_section renders chat messages and input' do
@@ -149,7 +157,7 @@ module Fenetre
 
     test 'chat_messages renders chatMessages target' do
       html = send(:chat_messages)
-      assert_includes html, 'data-fenetre-video-chat-target="chatMessages"'
+      assert_includes html, 'data-fenetre--video-chat-target="chatMessages"'
     end
 
     test 'chat_input_container renders input and send button' do

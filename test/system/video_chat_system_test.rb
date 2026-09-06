@@ -3,150 +3,69 @@
 require 'application_system_test_case'
 
 class VideoChatSystemTest < ApplicationSystemTestCase
-  setup do
-    # Initialize Capybara session management
-    Capybara.reset_sessions!
-  end
+  test 'two browsers exchange live video audio and chat then clean up a departed peer' do
+    visit_room('two-browser-proof')
+    first_id = page.evaluate_script("#{controller_script}.userIdValue")
 
-  test 'video chat UI renders with all required elements' do
-    visit '/video_chat?room_id=testroom&user_id=1'
-
-    # Verify core UI components
-    assert_selector '[data-controller="fenetre--video-chat"]'
-    assert_selector 'video[data-fenetre-video-chat-target="localVideo"]'
-    assert_selector 'div[data-fenetre-video-chat-target="remoteVideos"]', visible: :all
-    assert_selector 'input[value="testroom"]', visible: :all
-
-    # Verify media control buttons exist
-    assert_selector 'button[data-action*="fenetre--video-chat#toggleVideo"]'
-    assert_selector 'button[data-action*="fenetre--video-chat#toggleAudio"]'
-
-    # Verify chat interface elements
-    assert_selector 'div[data-fenetre-video-chat-target="chatMessages"]', visible: :all
-    assert_selector 'input[data-fenetre-video-chat-target="chatInput"]', visible: :all
-    assert_selector 'button[data-action*="fenetre--video-chat#sendChat"]', visible: :all
-
-    # Verify the page title and room info
-    assert_text 'Video Chat Test Page'
-    assert_text 'Room ID: testroom'
-  end
-
-  test 'user can interact with media controls' do
-    visit '/video_chat?room_id=controltest&user_id=2&username=TestUser'
-
-    # Test video toggle functionality
-    assert_selector 'video[data-fenetre-video-chat-target="localVideo"]'
-    find('button[data-action*="fenetre--video-chat#toggleVideo"]').click
-
-    # Ideally we would verify the video track is disabled, but for system tests
-    # we can only confirm the button interaction works without errors
-
-    # Test audio toggle functionality
-    find('button[data-action*="fenetre--video-chat#toggleAudio"]').click
-
-    # Again, we can verify the button click doesn't cause errors
-    assert_selector 'button[data-action*="fenetre--video-chat#toggleAudio"]'
-  end
-
-  test 'user can send and receive chat messages' do
-    visit '/video_chat?room_id=chattest&user_id=3'
-
-    # Find the chat input field and verify it exists
-    input_field = find('input[data-fenetre-video-chat-target="chatInput"]', visible: :all)
-
-    assert_not_nil input_field
-
-    # Find the send button and verify it exists
-    send_button = find('button[data-action*="fenetre--video-chat#sendChat"]', visible: :all)
-
-    assert_not_nil send_button
-
-    # Verify the chat messages container exists
-    assert_selector 'div[data-fenetre-video-chat-target="chatMessages"]', visible: :all
-
-    # Fill in the chat input with a test message
-    input_field.fill_in with: 'Test message'
-
-    # Click the send button - this would normally trigger the JavaScript
-    send_button.click
-
-    # This is where we would verify the message appears, but since
-    # WebRTC and ActionCable connections may not work in the test environment,
-    # we'll just verify the UI components are correctly set up
-  end
-
-  test 'room connection status is properly displayed' do
-    visit '/video_chat?room_id=connectiontest&user_id=3'
-
-    # Verify connection-related elements
-    assert_selector 'video[data-fenetre-video-chat-target="localVideo"]'
-
-    # Add connection status element to the test if it exists
-    assert_selector '[data-fenetre-video-chat-target="connectionStatus"]' if has_selector?('[data-fenetre-video-chat-target="connectionStatus"]', wait: 1)
-  end
-
-  test 'multiple users can connect to the same room' do
-    # First user visits the page
-    visit '/video_chat?room_id=multiuser-test&user_id=4&username=User4'
-
-    # Verify the first user's page loaded correctly
-    assert_selector '[data-controller="fenetre--video-chat"]'
-    assert_text 'Room ID: multiuser-test'
-
-    # Open a new browser session for second user
-    using_session(:user2) do
-      visit '/video_chat?room_id=multiuser-test&user_id=5&username=User5'
-
-      assert_selector '[data-controller="fenetre--video-chat"]'
-
-      # Send a chat message from second user
-      find('input[data-fenetre-video-chat-target="chatInput"]', visible: :all).fill_in with: 'Hello from User5'
-      find('button[data-action*="fenetre--video-chat#sendChat"]', visible: :all).click
+    using_session(:second_participant) do
+      visit_room('two-browser-proof')
+      assert_selector '.fenetre-participant-list li', count: 2
+      assert_remote_media
+      find('[data-fenetre--video-chat-target="chatInput"]').fill_in with: 'Hello from the second browser'
+      click_on 'Send'
+      assert_selector '.fenetre-chat-message', text: 'You: Hello from the second browser', count: 1
     end
 
-    # First user should receive the chat message from the second user
-    # Note: In a real application, this would be delivered through ActionCable
-    # For our test purposes, we're just verifying the UI is properly set up
+    assert_selector '.fenetre-participant-list li', count: 2
+    assert_remote_media
+    assert_selector '.fenetre-chat-message', text: 'Hello from the second browser', count: 1
+    find('[data-fenetre--video-chat-target="chatInput"]').fill_in with: 'Reply from the first browser'
+    click_on 'Send'
+
+    using_session(:second_participant) do
+      assert_selector '.fenetre-chat-message', text: "#{first_id}: Reply from the first browser", count: 1
+      visit '/up'
+    end
+
+    assert_no_selector '.fenetre-remote-video-container'
+    assert_selector '.fenetre-participant-list li', count: 1
+    assert_empty page.evaluate_script("Object.keys(#{controller_script}.peerConnections)")
   end
 
-  test 'room parameters are properly handled' do
-    visit '/video_chat?room_id=customroom&user_id=6&username=CustomUser&room_topic=Custom%20Meeting&max_participants=3'
-
-    # Verify basic parameters are shown
-    assert_text 'Video Chat Test Page'
-    assert_text 'Room ID: customroom'
-
-    # Verify the controller is properly initialized
-    assert_selector '[data-controller="fenetre--video-chat"]'
-
-    # Check for any custom room features based on parameters
-    # (These would depend on your specific implementation)
+  test 'users in different rooms do not receive each others chat or media' do
+    visit_room('isolated-first')
+    using_session(:other_room) do
+      visit_room('isolated-second')
+      find('[data-fenetre--video-chat-target="chatInput"]').fill_in with: 'A different room'
+      click_on 'Send'
+      assert_selector '.fenetre-chat-message', text: 'A different room'
+    end
+    assert_no_selector '.fenetre-chat-message'
+    assert_no_selector '.fenetre-remote-video-container'
+    assert_selector '.fenetre-participant-list li', count: 1
   end
 
-  test 'user can toggle screen sharing' do
-    visit '/video_chat?room_id=screenshare&user_id=7'
+  private
 
-    # Verify the screen sharing button exists
-    assert_selector 'button[data-action*="fenetre--video-chat#toggleScreenShare"]'
-
-    # Click the screen sharing button
-    # Note: In a test environment, the browser may not actually show the screen sharing dialog
-    # We're just verifying the button exists and can be clicked without errors
-    find('button[data-action*="fenetre--video-chat#toggleScreenShare"]').click
-
-    # Verify the button is still there after clicking (no JS errors)
-    assert_selector 'button[data-action*="fenetre--video-chat#toggleScreenShare"]'
-  end
-
-  test 'connection status indicator is displayed' do
-    visit '/video_chat?room_id=connectionstatus&user_id=8'
-
-    # Verify the connection status element exists
-    assert_selector '[data-fenetre-video-chat-target="connectionStatus"]'
-
-    # Initially it should show "Connecting..." (or whatever initial state you set)
-    within('[data-fenetre-video-chat-target="connectionStatus"]') do
-      assert_text(/Connecting\.\.\.|Connected|Disconnected/i)
+  def assert_remote_media
+    assert_selector '.fenetre-peer-connected', text: 'Connected'
+    wait_for_script(<<~JS)
+      (() => {
+        const video = document.querySelector('.fenetre-remote-video-container video');
+        return video && video.videoWidth > 0 && video.currentTime > 0 &&
+          video.srcObject.getAudioTracks().some(track => track.readyState === 'live') &&
+          video.srcObject.getVideoTracks().some(track => track.readyState === 'live');
+      })()
+    JS
+    stats = page.evaluate_async_script(<<~JS)
+      const done = arguments[0];
+      const pc = Object.values(#{controller_script}.peerConnections)[0];
+      pc.getStats().then(report => done(Array.from(report.values())
+        .filter(stat => stat.type === 'inbound-rtp')
+        .map(stat => ({kind: stat.kind, bytes: stat.bytesReceived}))), error => done({error: error.message}));
+    JS
+    %w[audio video].each do |kind|
+      assert stats.any? { |stat| stat['kind'] == kind && stat['bytes'].positive? }, "Expected received #{kind} RTP packets: #{stats.inspect}"
     end
   end
 end

@@ -4,20 +4,15 @@ require 'test_helper'
 
 module Fenetre
   class JavascriptLoadingTest < ActionDispatch::IntegrationTest
-    test 'javascript files load with correct MIME types' do
-      # This test checks if JavaScript files are served with the correct MIME type
-
-      # Check Stimulus based on importmap pin and propshaft path
-      get '/assets/stimulus.min.js' # Reverted path based on importmap pin
-
-      assert_equal 'application/javascript', response.content_type,
-                   'Stimulus.min.js should be served with application/javascript MIME type'
-
-      # Check controller path (assuming it's mapped correctly by propshaft/importmap)
-      get '/assets/fenetre/controllers/video_chat_controller.js' # Path seems correct based on importmap
-
-      assert_equal 'application/javascript', response.content_type,
-                   'Video chat controller should be served with application/javascript MIME type'
+    test 'all importmap assets are served with JavaScript MIME types and real content' do
+      get '/video_chat'
+      pins = JSON.parse(Nokogiri::HTML(response.body).at_css('script[type="importmap"]').text).fetch('imports')
+      pins.values.uniq.each do |path|
+        get path
+        assert_response :success
+        assert_match(/javascript/, response.media_type, path)
+        refute_empty response.body
+      end
     end
   end
 end

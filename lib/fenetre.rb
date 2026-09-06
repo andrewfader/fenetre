@@ -2,6 +2,7 @@
 
 require_relative 'fenetre/version'
 require_relative 'fenetre/engine'
+require_relative 'fenetre/presence'
 
 module Fenetre
   # Default ICE servers. Override in an initializer for production TURN:
@@ -35,6 +36,10 @@ module Fenetre
 
   mattr_accessor :frame_rate
   self.frame_rate = 30
+
+  mattr_accessor :authorize_room, default: ->(_user, _room) { true }
+  mattr_accessor :room_options, default: ->(_user, _room) { {} }
+  mattr_accessor :presence, default: Presence.new
 
   def self.configure
     yield self

@@ -13,7 +13,7 @@ module Fenetre
       doc = Nokogiri::HTML::DocumentFragment.parse(html)
 
       # Check for connection status element
-      status_element = doc.at('[data-fenetre-video-chat-target="connectionStatus"]')
+      status_element = doc.at('[data-fenetre--video-chat-target="connectionStatus"]')
 
       assert_not_nil status_element, 'Connection status element should exist'
 

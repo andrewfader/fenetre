@@ -1,20 +1,20 @@
 # frozen_string_literal: true
 
-require 'test_helper'
-require 'capybara/rails'
+require_relative 'test_helper'
 
 class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
-  # Detect if running in CI environment (common CI env vars)
-  CI_ENV = ENV['CI'] || ENV['GITHUB_ACTIONS'] || ENV['GITLAB_CI'] || ENV.fetch('JENKINS_URL', nil)
+  driven_by :selenium_chrome_headless
 
-  # Configure Chrome for either CI or local testing
-  driven_by :selenium, using: :headless_chrome, screen_size: [1400, 1400] do |options|
-    # Add Chrome options that help tests run reliably in both environments
-    options.add_argument('--disable-dev-shm-usage')
-    options.add_argument('--no-sandbox')
+  def wait_for_script(script)
+    Selenium::WebDriver::Wait.new(timeout: 15).until { page.evaluate_script(script) }
+  end
 
-    # Add fake media stream for WebRTC testing
-    options.add_argument('--use-fake-device-for-media-stream')
-    options.add_argument('--use-fake-ui-for-media-stream')
+  def controller_script
+    %q(window.Stimulus.getControllerForElementAndIdentifier(document.querySelector('[data-controller="fenetre--video-chat"]'), "fenetre--video-chat"))
+  end
+
+  def visit_room(room)
+    visit "/video_chat?room_id=#{room}"
+    assert_selector '.fenetre-status-connected', text: 'Connected'
   end
 end

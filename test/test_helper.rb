@@ -10,9 +10,11 @@ SimpleCov.start 'rails' do
   # Add specific groups for better coverage analysis
   add_group 'Channels', 'app/channels'
   add_group 'Helpers', 'app/helpers'
-  add_group 'JavaScript', ['app/assets/javascripts', 'app/javascript']
   add_group 'Library', 'lib'
 end
+
+# Ensure version.rb is tracked in SimpleCov
+require_relative '../lib/fenetre/version'
 
 # Configure Rails Environment
 ENV['RAILS_ENV'] = 'test'
@@ -25,37 +27,42 @@ require 'capybara/rails' # Add Capybara for integration tests
 require 'capybara/minitest' # Add Capybara Minitest assertions
 require 'importmap-rails' # Ensure importmap-rails is loaded
 
-# Filter out Minitest backtrace while allowing backtrace from other libraries
-# to be shown.
+# Filter out Minitest backtrace while allowing backtrace from other libraries to be shown.
 Minitest.backtrace_filter = Minitest::BacktraceFilter.new
 
 # Load fixtures from the engine
-# puts "[Fenetre Test Helper] Checking for engine fixtures directory..."
 engine_fixture_path = File.expand_path('fixtures', __dir__)
-if ActiveSupport::TestCase.respond_to?(:fixture_paths=) && Dir.exist?(engine_fixture_path)
-  # puts "[Fenetre Test Helper] Engine fixtures directory found at: #{engine_fixture_path}. Adding to fixture paths."
-  ActiveSupport::TestCase.fixture_paths << engine_fixture_path
-  # Explicitly load fixtures if needed, adjust based on your setup
-  # ActiveSupport::TestCase.fixtures :all
+ActiveSupport::TestCase.fixture_paths << engine_fixture_path if ActiveSupport::TestCase.respond_to?(:fixture_paths=) && Dir.exist?(engine_fixture_path)
+
+# Register selenium driver for Capybara
+Capybara.register_driver :selenium_chrome_headless do |app|
+  options = Selenium::WebDriver::Chrome::Options.new
+  options.binary = '/usr/bin/chromium' if File.exist?('/usr/bin/chromium')
+  options.add_argument('--headless=new')
+  options.add_argument('--disable-dev-shm-usage')
+  options.add_argument('--no-sandbox')
+  options.add_argument('--window-size=1400,1400')
+  options.add_argument('--use-fake-device-for-media-stream')
+  options.add_argument('--use-fake-ui-for-media-stream')
+  options.add_argument('--autoplay-policy=no-user-gesture-required')
+  options.add_option('goog:loggingPrefs', browser: 'ALL')
+  service = Selenium::WebDriver::Service.chrome(path: ENV.fetch('CHROMEDRIVER', '/usr/bin/chromedriver'))
+  Capybara::Selenium::Driver.new(app, browser: :chrome, options: options, service: service)
 end
 
-# Include Action Cable testing helpers globally if needed, or specifically in channel tests
-# class ActiveSupport::TestCase
-#   include ActionCable::TestHelper
-# end
+# Set default javascript driver
+Capybara.javascript_driver = :selenium_chrome_headless
 
 # Include Capybara DSL in Integration Tests for JavaScript capabilities
 module ActionDispatch
   class IntegrationTest
     include Capybara::DSL
-    # Make `assert_*` methods behave like Minitest assertions
     include Capybara::Minitest::Assertions
 
-    # Set the Capybara driver for JS tests (can be :selenium_chrome_headless, :cuprite, etc.)
-    # Ensure the driver matches the one used in system tests if consistency is needed
-    Capybara.javascript_driver = :selenium_chrome_headless
+    setup do
+      Capybara.current_driver = :rack_test unless is_a?(ActionDispatch::SystemTestCase)
+    end
 
-    # Optional: Reset sessions and driver after each test
     teardown do
       Capybara.reset_sessions!
       Capybara.use_default_driver
@@ -66,4 +73,5 @@ end
 # Ensure Action Cable uses the test adapter
 ActionCable.server.config.cable = { 'adapter' => 'test' }
 
-# Add more helper methods to be used by all tests here...
+Capybara.default_max_wait_time = 10
+Capybara.enable_aria_label = true

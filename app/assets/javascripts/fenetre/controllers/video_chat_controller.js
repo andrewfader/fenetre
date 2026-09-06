@@ -1,8 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
+import { createConsumer } from "@rails/actioncable"
 
 // Connects to data-controller="fenetre--video-chat"
-// Quality bar: Zoom / Skype / Jitsi — HD capture, AEC/NS, TURN-ready ICE,
-// targeted signaling, perfect negotiation, ICE restart, bitrate caps.
 export default class extends Controller {
   static targets = [
     "localVideo",
@@ -11,6 +10,7 @@ export default class extends Controller {
     "chatInput",
     "chatMessages",
     "connectionStatus",
+    "participants",
   ]
   static values = {
     userId: String,
@@ -23,18 +23,18 @@ export default class extends Controller {
   }
 
   connect() {
-    this.peerConnections = {}
-    this.makingOffer = {}
-    this.ignoreOffer = {}
-    this.iceCandidateQueue = {}
-    this.iceRestartTimers = {}
+    this.peerConnections = Object.create(null)
+    this.makingOffer = Object.create(null)
+    this.settingRemoteAnswer = Object.create(null)
+    this.ignoreOffer = Object.create(null)
+    this.iceCandidateQueue = Object.create(null)
+    this.iceRestartTimers = Object.create(null)
+    this.active = true
+    this.generation = (this.generation || 0) + 1
     this.localStream = null
     this.screenStream = null
     this.isScreenSharing = false
     this.savedVideoTrack = null
-    this._cableConnected = this.handleActionCableConnected.bind(this)
-    this._cableDisconnected = this.handleActionCableDisconnected.bind(this)
-    this._screenShareChanged = this.handleScreenSharingChange.bind(this)
 
     if (!this.hasConnectionStatusTarget || !this.hasRoomIdTarget) {
       console.error("Fenetre: required targets missing (connectionStatus / roomId).")
@@ -51,55 +51,33 @@ export default class extends Controller {
     this.isPolite = (peerId) => String(this.userIdValue) > String(peerId)
 
     this.updateConnectionStatus("connecting")
-    this.setupConnectionEventListeners()
 
-    this.startLocalVideo()
-      .then(() => this.createSubscription())
-      .catch((error) => this.handleMediaError(error))
-  }
-
-  setupConnectionEventListeners() {
-    document.addEventListener("cable-ready:connected", this._cableConnected)
-    document.addEventListener("cable-ready:disconnected", this._cableDisconnected)
-    document.addEventListener("screen-sharing-changed", this._screenShareChanged)
-  }
-
-  handleActionCableConnected() {
-    this.updateConnectionStatus("connected")
-  }
-
-  handleActionCableDisconnected() {
-    this.updateConnectionStatus("disconnected")
-  }
-
-  handleScreenSharingChange(event) {
-    const button = this.element.querySelector(
-      'button[data-action*="fenetre--video-chat#toggleScreenShare"]'
-    )
-    if (!button) return
-    if (event.detail?.status === "started") {
-      button.classList.add("screen-sharing")
-      button.textContent = "Stop Sharing"
-    } else if (event.detail?.status === "stopped") {
-      button.classList.remove("screen-sharing")
-      button.textContent = "Share Screen"
-    }
+    const generation = this.generation
+    this.startLocalVideo(generation)
+      .then(() => {
+        if (this.active && this.generation === generation) this.createSubscription()
+      })
+      .catch((error) => {
+        if (this.active && this.generation === generation) this.handleMediaError(error)
+      })
   }
 
   disconnect() {
-    document.removeEventListener("cable-ready:connected", this._cableConnected)
-    document.removeEventListener("cable-ready:disconnected", this._cableDisconnected)
-    document.removeEventListener("screen-sharing-changed", this._screenShareChanged)
-
+    this.active = false
+    this.generation = (this.generation || 0) + 1
     Object.keys(this.iceRestartTimers || {}).forEach((id) => {
       clearTimeout(this.iceRestartTimers[id])
     })
-    this.iceRestartTimers = {}
+    this.iceRestartTimers = Object.create(null)
 
     if (this.subscription) {
-      this.subscription.unsubscribe()
+      this.subscription.unsubscribe?.()
       this.subscription = null
     }
+    this._consumer?.disconnect()
+    this._consumer = null
+    this.savedVideoTrack?.stop()
+    this.savedVideoTrack = null
     if (this.localStream) {
       this.localStream.getTracks().forEach((t) => t.stop())
       this.localStream = null
@@ -108,8 +86,9 @@ export default class extends Controller {
       this.screenStream.getTracks().forEach((t) => t.stop())
       this.screenStream = null
     }
-    Object.values(this.peerConnections).forEach((pc) => pc.close())
-    this.peerConnections = {}
+    Object.keys(this.peerConnections).forEach((id) => this.removePeerConnection(id))
+    if (this.hasLocalVideoTarget) this.localVideoTarget.srcObject = null
+    this.peerConnections = Object.create(null)
     if (this.hasRemoteVideosTarget) {
       this.remoteVideosTarget.innerHTML = ""
     }
@@ -155,8 +134,13 @@ export default class extends Controller {
     }
   }
 
-  async startLocalVideo() {
-    this.localStream = await navigator.mediaDevices.getUserMedia(this.mediaConstraints())
+  async startLocalVideo(generation = this.generation) {
+    const stream = await navigator.mediaDevices.getUserMedia(this.mediaConstraints())
+    if (!this.active || this.generation !== generation) {
+      stream.getTracks().forEach((track) => track.stop())
+      return
+    }
+    this.localStream = stream
     if (this.hasLocalVideoTarget) {
       this.localVideoTarget.srcObject = this.localStream
       this.localVideoTarget.muted = true
@@ -181,16 +165,7 @@ export default class extends Controller {
   }
 
   createSubscription() {
-    if (!window.App?.cable && !window.ActionCable) {
-      console.error("ActionCable not available.")
-      this.updateConnectionStatus("error")
-      return
-    }
-
-    const consumer =
-      window.App?.cable ||
-      this._consumer ||
-      (this._consumer = window.ActionCable.createConsumer())
+    const consumer = this._consumer ||= createConsumer()
 
     this.subscription = consumer.subscriptions.create(
       { channel: "Fenetre::VideoChatChannel", room_id: this.roomId },
@@ -200,9 +175,11 @@ export default class extends Controller {
           this.announceJoin()
         },
         disconnected: () => {
+          Object.keys(this.peerConnections).forEach((id) => this.removePeerConnection(id))
           this.updateConnectionStatus("reconnecting")
         },
         rejected: () => {
+          this.disconnect()
           this.updateConnectionStatus("error")
         },
         received: (data) => this.handleSignalingData(data),
@@ -217,28 +194,20 @@ export default class extends Controller {
   handleSignalingData(data) {
     if (!data || typeof data !== "object") return
 
-    if (data.turbo_stream) {
-      this.applyTurboStream(data.turbo_stream)
-    }
-
-    if (data.type === "join") this.onJoin?.(data)
-    else if (data.type === "leave") this.onLeave?.(data)
-    else if (data.type === "chat") this.onChat?.(data)
-    else if (data.type === "mute" || data.type === "unmute") this.onModeration?.(data)
-    else if (data.type === "raise_hand" || data.type === "lower_hand") this.onHandRaise?.(data)
-
     const from = data.from != null ? String(data.from) : null
     const to = data.to != null ? String(data.to) : null
     const selfId = String(this.userIdValue)
-
-    if (from === selfId) return
-    // Targeted signals: ignore if addressed to someone else
     if (to && to !== selfId) return
+
+    if (data.type === "join") this.onJoin(data)
+    if (data.type === "leave") this.onLeave(data)
+    if (!from || from === selfId) return
+    if (data.type === "chat") this.onChat(data)
 
     switch (data.type) {
       case "join":
         // Existing peers offer to the joiner (mesh).
-        this.createPeerConnection(from, true)
+        this.createPeerConnection(from)
         break
       case "offer":
         this.handleOffer(from, data.payload)
@@ -250,26 +219,20 @@ export default class extends Controller {
         this.handleRemoteCandidate(from, data.payload)
         break
       case "leave":
-        this.removePeerConnection(from)
+        if (!data.participants?.map(String).includes(from)) this.removePeerConnection(from)
         break
-      case "chat":
-        // already handled in onChat
+      case "kick":
+        this.disconnect()
+        this.connectionStatusTarget.textContent = "Removed from room"
+        break
+      case "mute":
+        if (this.localStream?.getAudioTracks()[0]?.enabled) this.toggleAudio()
+        break
+      case "unmute":
+        this.dispatch("unmute-requested", { detail: { from } })
         break
       default:
         break
-    }
-  }
-
-  applyTurboStream(turboStreamHtml) {
-    const template = document.createElement("template")
-    template.innerHTML = String(turboStreamHtml).trim()
-    const stream = template.content.firstElementChild
-    if (stream && stream.tagName === "TURBO-STREAM") {
-      if (window.Turbo?.renderStreamMessage) {
-        window.Turbo.renderStreamMessage(turboStreamHtml)
-      } else {
-        document.body.appendChild(stream)
-      }
     }
   }
 
@@ -288,8 +251,8 @@ export default class extends Controller {
   }
 
   updateParticipantList(participants) {
-    const list = document.getElementById("fenetre-participant-list")
-    if (!list) return
+    if (!this.hasParticipantsTarget) return
+    const list = this.participantsTarget
     list.innerHTML = ""
     participants.forEach((id) => {
       const li = document.createElement("li")
@@ -313,7 +276,7 @@ export default class extends Controller {
     const message = this.chatInputTarget.value.trim()
     if (!message || !this.subscription) return
 
-    this.subscription.perform("send_message", { message })
+    if (this.subscription.perform("send_message", { message }) === false) return
     this.chatInputTarget.value = ""
     this.appendChatMessage({ from: "You", message })
   }
@@ -347,13 +310,16 @@ export default class extends Controller {
   }
 
   toggleScreenShare() {
-    if (this.isScreenSharing) this.stopScreenSharing()
-    else this.startScreenSharing()
+    if (this.isScreenSharing) return this.stopScreenSharing()
+    return this.startScreenSharing()
   }
 
   async startScreenSharing() {
+    if (this.startingScreenShare || this.isScreenSharing || !this.localStream) return
+    this.startingScreenShare = true
+    const generation = this.generation
     try {
-      this.screenStream = await navigator.mediaDevices.getDisplayMedia({
+      const stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           cursor: "always",
           width: { ideal: 1920 },
@@ -363,6 +329,11 @@ export default class extends Controller {
         audio: false,
       })
 
+      if (!this.active || this.generation !== generation) {
+        stream.getTracks().forEach((track) => track.stop())
+        return
+      }
+      this.screenStream = stream
       this.savedVideoTrack = this.localStream?.getVideoTracks()?.[0] || null
       const screenTrack = this.screenStream.getVideoTracks()[0]
 
@@ -386,12 +357,17 @@ export default class extends Controller {
       this.isScreenSharing = true
       screenTrack.onended = () => this.stopScreenSharing()
     } catch (error) {
-      console.error("Error starting screen share:", error)
+      this.screenStream?.getTracks().forEach((track) => track.stop())
+      this.screenStream = null
+      if (error.name !== "NotAllowedError") console.error("Error starting screen share:", error)
+    } finally {
+      this.startingScreenShare = false
     }
   }
 
   async stopScreenSharing() {
     if (!this.isScreenSharing) return
+    this.isScreenSharing = false
     try {
       this.screenStream?.getTracks()?.forEach((t) => t.stop())
       this.screenStream = null
@@ -449,10 +425,7 @@ export default class extends Controller {
   }
 
   iceConfiguration() {
-    const servers =
-      this.iceServersValue?.length > 0
-        ? this.iceServersValue
-        : [{ urls: "stun:stun.l.google.com:19302" }]
+    const servers = this.iceServersValue
     return {
       iceServers: servers,
       iceCandidatePoolSize: 4,
@@ -461,16 +434,15 @@ export default class extends Controller {
     }
   }
 
-  createPeerConnection(peerId, isOffering) {
+  createPeerConnection(peerId) {
     peerId = String(peerId)
     if (this.peerConnections[peerId]) {
-      if (isOffering) this.makeOffer(peerId)
       return this.peerConnections[peerId]
     }
 
     const pc = new RTCPeerConnection(this.iceConfiguration())
     this.peerConnections[peerId] = pc
-    this.iceCandidateQueue[peerId] = []
+    this.iceCandidateQueue[peerId] ||= []
     this.makingOffer[peerId] = false
     this.ignoreOffer[peerId] = false
 
@@ -533,21 +505,15 @@ export default class extends Controller {
       }
     }
 
-    if (isOffering) {
-      this.makeOffer(peerId)
-    }
-
     return pc
   }
 
   async makeOffer(peerId) {
     const pc = this.peerConnections[peerId]
-    if (!pc) return
+    if (!pc || this.makingOffer[peerId] || pc.signalingState !== "stable") return
     try {
       this.makingOffer[peerId] = true
-      const offer = await pc.createOffer({ iceRestart: false })
-      if (pc.signalingState !== "stable") return
-      await pc.setLocalDescription(offer)
+      await pc.setLocalDescription()
       this.sendSignal(peerId, "offer", pc.localDescription)
     } catch (e) {
       console.error("Error creating offer:", e)
@@ -560,29 +526,21 @@ export default class extends Controller {
     const pc = this.peerConnections[peerId]
     if (!pc) return
     this.updateConnectionStatus("reconnecting")
-    try {
-      const offer = await pc.createOffer({ iceRestart: true })
-      await pc.setLocalDescription(offer)
-      this.sendSignal(peerId, "offer", pc.localDescription)
-    } catch (e) {
-      console.error("ICE restart failed:", e)
-      this.removePeerConnection(peerId)
-    }
+    pc.restartIce()
   }
 
   async handleOffer(peerId, payload) {
     peerId = String(peerId)
-    const pc = this.createPeerConnection(peerId, false)
+    const pc = this.createPeerConnection(peerId)
     const offerCollision =
-      this.makingOffer[peerId] || pc.signalingState !== "stable"
+      this.makingOffer[peerId] || (pc.signalingState !== "stable" && !this.settingRemoteAnswer[peerId])
     this.ignoreOffer[peerId] = !this.isPolite(peerId) && offerCollision
     if (this.ignoreOffer[peerId]) return
 
     try {
       await pc.setRemoteDescription(payload)
       await this.flushIceCandidateQueue(peerId)
-      const answer = await pc.createAnswer()
-      await pc.setLocalDescription(answer)
+      await pc.setLocalDescription()
       this.sendSignal(peerId, "answer", pc.localDescription)
     } catch (e) {
       console.error("Error handling offer:", e)
@@ -595,19 +553,23 @@ export default class extends Controller {
     if (!pc) return
     try {
       if (pc.signalingState === "have-local-offer") {
+        this.settingRemoteAnswer[peerId] = true
         await pc.setRemoteDescription(payload)
+        this.settingRemoteAnswer[peerId] = false
         await this.flushIceCandidateQueue(peerId)
       }
     } catch (e) {
       console.error("Error setting remote description on answer:", e)
+    } finally {
+      this.settingRemoteAnswer[peerId] = false
     }
   }
 
   async handleRemoteCandidate(peerId, candidate) {
     peerId = String(peerId)
     const pc = this.peerConnections[peerId]
-    if (!pc || !candidate) return
-    if (!pc.remoteDescription) {
+    if (!candidate || this.ignoreOffer[peerId]) return
+    if (!pc?.remoteDescription) {
       this.iceCandidateQueue[peerId] = this.iceCandidateQueue[peerId] || []
       this.iceCandidateQueue[peerId].push(candidate)
       return
@@ -635,7 +597,8 @@ export default class extends Controller {
   }
 
   updatePeerConnectionState(peerId, pc) {
-    const videoContainer = this.remoteVideosTarget?.querySelector(`[data-peer-id="${peerId}"]`)
+    if (!this.hasRemoteVideosTarget) return
+    const videoContainer = this.remoteVideosTarget.querySelector(`[data-peer-id="${CSS.escape(String(peerId))}"]`)
     if (!videoContainer) return
 
     let statusElement = videoContainer.querySelector(".fenetre-peer-status")
@@ -668,14 +631,21 @@ export default class extends Controller {
     clearTimeout(this.iceRestartTimers[peerId])
     delete this.iceRestartTimers[peerId]
     delete this.makingOffer[peerId]
+    delete this.settingRemoteAnswer[peerId]
     delete this.ignoreOffer[peerId]
     delete this.iceCandidateQueue[peerId]
     if (this.peerConnections[peerId]) {
-      this.peerConnections[peerId].close()
+      const pc = this.peerConnections[peerId]
       delete this.peerConnections[peerId]
+      pc.oniceconnectionstatechange = null
+      pc.onconnectionstatechange = null
+      pc.onnegotiationneeded = null
+      pc.onicecandidate = null
+      pc.ontrack = null
+      pc.close()
     }
-    this.remoteVideosTarget
-      ?.querySelector(`[data-peer-id="${peerId}"]`)
+    if (this.hasRemoteVideosTarget) this.remoteVideosTarget
+      .querySelector(`[data-peer-id="${CSS.escape(String(peerId))}"]`)
       ?.remove()
   }
 
@@ -694,7 +664,7 @@ export default class extends Controller {
     if (!this.hasRemoteVideosTarget) return
     peerId = String(peerId)
     let videoElement = this.remoteVideosTarget.querySelector(
-      `[data-peer-id="${peerId}"] video`
+      `[data-peer-id="${CSS.escape(String(peerId))}"] video`
     )
 
     if (!videoElement) {

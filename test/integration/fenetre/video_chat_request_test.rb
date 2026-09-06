@@ -65,7 +65,7 @@ module Fenetre
       )
 
       assert_match(/data-controller="fenetre--video-chat"/, helper_output)
-      assert_match(/data-fenetre-video-chat-user-id-value="99"/, helper_output)
+      assert_match(/data-fenetre--video-chat-user-id-value="99"/, helper_output)
       assert_match(/type="hidden".*value="helpertest"/, helper_output)
     end
 
