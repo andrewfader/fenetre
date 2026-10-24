@@ -1,7 +1,7 @@
 PATH
   remote: ../..
   specs:
-    fenetre (0.1.0)
+    fenetre (0.2.0)
       importmap-rails
       propshaft
       rails (>= 6.1)
