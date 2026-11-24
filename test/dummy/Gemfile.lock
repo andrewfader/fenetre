@@ -96,7 +96,7 @@ GEM
       irb (~> 1.10)
       reline (>= 0.3.8)
     drb (2.2.3)
-    erb (6.1.0)
+    erb (6.0.7)
     erubi (1.13.1)
     globalid (1.4.0)
       activesupport (>= 6.1)
@@ -254,7 +254,7 @@ DEPENDENCIES
   turbo-rails
 
 RUBY VERSION
-  ruby 4.0.9
+  ruby 4.0.10
 
 BUNDLED WITH
   4.0.20
